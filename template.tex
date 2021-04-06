@@ -1,0 +1,35 @@
+\documentclass[a4paper]{article}
+\usepackage[a4paper, margin=1in]{geometry}
+% Beamer:
+% \documentclass{beamer}
+% \usefonttheme[onlymath]{serif}
+% \usetheme{metropolis}
+
+% bibliogrpahy:
+\usepackage[style=authoryear,maxbibnames=9,maxcitenames=2,uniquelist=false, backend=biber]{biblatex}
+\addbibresource{BIB}
+
+% \openup 1em % double spacing
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{import}
+\usepackage{pdfpages}
+\usepackage{transparent}
+\usepackage{xcolor}
+\newcommand{\inkfig}[2][1]{%
+  \def\svgwidth{#1\columnwidth}
+  \import{./figures/}{#2.pdf_tex}
+}
+\pdfsuppresswarningpagegroup=1
+\title{Note on "TITLE"}
+\author{Author(s): AUTHOR}
+\date{\today}
+\begin{document}
+\maketitle
+
+
+
+\printbibliography
+\end{document}
