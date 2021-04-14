@@ -31,6 +31,8 @@ BEGIN {
     NTEPATH = PDFPATH "Notes/"
     LIBPATH = PDFPATH "Libs/"
     APXPATH = PDFPATH "Appendices/"
+    movement = "default";
+
 
     #####################
     #  Start of script  #
@@ -164,6 +166,7 @@ BEGIN {
 	    response == choice[15]) {
 	    if (response == choice[15]) { # create sublibrary
 		name = notify("Type the name of the sublibrary:", name)
+		gsub(/ /, "_", name)
 		clear_screen()
 		file = LIBPATH name ".bib"
 	    }
@@ -353,7 +356,6 @@ BEGIN {
 		    system(OPENER " " file)
 		    system("xdotool windowmap " wid)
 		}
-		file = "";
 		back = 1;
 		continue
 	    }
@@ -369,7 +371,8 @@ BEGIN {
 		file = response
 	    }
 	    if (action == choice[14]) { # open sublibrary
-		ref_gen(LIBPATH response)
+		file = LIBPATH response
+		ref_gen(file)
 		save()
 		list = biblist "\f" "Go Back...\n\n\n\n\n";
 		delim = "\f";
@@ -414,7 +417,10 @@ BEGIN {
 		system("xdotool windowunmap " wid)
 		system(READER " " PDFPATH label ".pdf")
 		system("xdotool windowmap " wid)
-		back = 1
+		if (action == choice[14]) {
+		    load()
+		}
+		continue
 	    }
 	    if (action == choice[5]) { # open research site
 		if (doi == "") {
@@ -480,7 +486,9 @@ BEGIN {
 		}
 		system("cp " bibtmpfile " " BIBFILE \
 		       "; rm " tmpfile " " bibtmpfile)
-		back = 1;
+
+		ref_gen(BIBFILE)
+		list = biblist "\f" "Go Back...\n\n\n\n\n";
 	    }
 	    if (action == choice[10]) {
 		# manually create file hierarchy
@@ -568,10 +576,23 @@ BEGIN {
 
 	    ## search on crossref: bib_get
 	    if (bib_get == 1) {
-		print "\n" bibtex "\n" >> BIBFILE
-		yesno("Download corresponding pdf file?")
-		download = 1; bib_get = 0;
-		continue
+		getline BIB < BIBFILE
+		close(BIBFILE)
+		regex = ".*" label ".*"
+		match(BIB, regex)
+		if (RSTART) {
+		    notify("Duplicated BibTeX entry; press enter to continue")
+		    clear_screen()
+		    yesno("Download corresponding pdf file?")
+		    download = 1; bib_get = 0;
+		    continue
+		}
+		else {
+		    print "\n" bibtex "\n" >> BIBFILE
+		    yesno("Download corresponding pdf file?")
+		    download = 1; bib_get = 0;
+		    continue
+		}
 	    }
 
 	    ## search on crossref: download
@@ -663,19 +684,21 @@ BEGIN {
 
 function load() {
     layer--
-    list = saved[layer*5 - 4]
-    delim = saved[layer*5 - 3]
-    num = saved[layer*5 - 2]
-    tmsg = saved[layer*5 - 1]
-    bmsg = saved[layer*5]
+    response = saved[layer*6 - 5]
+    list = saved[layer*6 - 4]
+    delim = saved[layer*6 - 3]
+    num = saved[layer*6 - 2]
+    tmsg = saved[layer*6 - 1]
+    bmsg = saved[layer*6]
 }
 
 function save() {
-    saved[layer*5 - 4] = list
-    saved[layer*5 - 3] = delim
-    saved[layer*5 - 2] = num
-    saved[layer*5 - 1] = tmsg
-    saved[layer*5] = bmsg
+    saved[layer*6 - 5] = response
+    saved[layer*6 - 4] = list
+    saved[layer*6 - 3] = delim
+    saved[layer*6 - 2] = num
+    saved[layer*6 - 1] = tmsg
+    saved[layer*6] = bmsg
     layer++
 }
 
@@ -699,6 +722,8 @@ function restore() {
     tmsg = menu[4]; bmsg = menu[5];
     jsonlist = ""; biblist = ""; bibtex = "";
     metalist = ""; labellist = ""; file = "";
+    action = ""; movement = "default";
+    ADD = ""; DEL = ""; RMV = "";
     bib_get = 0; download = 0; database = 0;
 }
 
