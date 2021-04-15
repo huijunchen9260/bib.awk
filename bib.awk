@@ -583,17 +583,27 @@ BEGIN {
 		if (RSTART) {
 		    notify("Duplicated BibTeX entry; press enter to continue")
 		    clear_screen()
-		    yesno("Download corresponding pdf file?")
-		    download = 1; bib_get = 0;
-		    continue
 		}
 		else {
 		    print "\n" bibtex "\n" >> BIBFILE
-		    yesno("Download corresponding pdf file?")
-		    download = 1; bib_get = 0;
-		    continue
 		}
+		yesno("Download corresponding pdf file?")
+		download = 1; bib_get = 0;
+		continue
 	    }
+
+	    # if (bib_edit == 1) {
+		# srand()
+		# tmpfile = "/tmp/" sprintf("%x", 2095479*rand()) ".tmp"
+		# printf("%s", bibtex) > tmpfile
+		# system(EDITOR " " tmpfile)
+		# getline bibtex < tmpfile
+		# close(tmpfile)
+		# print "\n" bibtex "\n" >> BIBFILE
+		# yesno("Download corresponding pdf file?")
+		# download = 1; bib_edit = 0;
+		# continue
+	    # }
 
 	    ## search on crossref: download
 	    if (download == 1) {
@@ -722,6 +732,7 @@ function restore() {
     tmsg = menu[4]; bmsg = menu[5];
     jsonlist = ""; biblist = ""; bibtex = "";
     metalist = ""; labellist = ""; file = "";
+    string = ""; str = "";
     action = ""; movement = "default";
     ADD = ""; DEL = ""; RMV = "";
     bib_get = 0; download = 0; database = 0;
@@ -759,6 +770,11 @@ function meta_to_file(file, label, title, author, journal, doi) {
 }
 
 function label_alter(bibtex) {
+
+    label = "";
+    author = ""; journal = ""; orig = "";
+    year = ""; category = ""; booktitle = "";
+
     split(bibtex, bibtexarr, "\n")
     for (line in bibtexarr) {
 	if (bibtexarr[line] ~ /^@.*/) {
@@ -844,9 +860,15 @@ function wait_clip() {
 }
 
 function ref_gen(BIBFILE) {
+
     biblist = ""
     metalist = ""
     labellist = ""
+    label = ""; title = ""; year = "";
+    journal = ""; author = ""; doi = "";
+    meta_label = ""; meta_title = ""; meta_year = "";
+    meta_journal = ""; meta_author = ""; meta_doi = "";
+
     getline BIB < BIBFILE
     close(BIBFILE)
     split(BIB, bibarr, "@")
@@ -903,7 +925,6 @@ function ref_gen(BIBFILE) {
 		   meta_doi
 	labellist = labellist "\f" meta_label
 
-	# biblist = biblist "\f" bibarr[entry]
 	label = ""; title = ""; year = "";
 	journal = ""; author = ""; doi = "";
 	meta_label = ""; meta_title = ""; meta_year = "";
@@ -916,7 +937,12 @@ function ref_gen(BIBFILE) {
 }
 
 function crossref_json_process(string) {
-    jsonlist = ""
+
+    json = ""; jsonlist = ""
+    given = ""; family = ""
+    title = ""; category = ""; date = "";
+    journal = ""; author = ""; doi = "";
+
     cmd = "curl -s \"https://api.crossref.org/works?query.bibliographic=" \
 	   string \
 	   "&select=indexed,title,author,type,DOI,published-print,published-online,container-title\""
@@ -965,6 +991,7 @@ function crossref_json_process(string) {
 	jsonarr[entry] = title "\n" category "\n" date "\n" \
 	       journal "\n" author "\n" doi
 
+	given = ""; family = ""
 	title = ""; category = ""; date = "";
 	journal = ""; author = ""; doi = "";
 	jsonlist = jsonlist "\f" jsonarr[entry]
