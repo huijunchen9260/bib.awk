@@ -28,10 +28,10 @@ BEGIN {
     #  Parameters  #
     ################
 
-    NTEPATH = PDFPATH "Notes/"
-    LIBPATH = PDFPATH "Libs/"
-    APXPATH = PDFPATH "Appendices/"
-    movement = "default";
+    NTEPATH = PDFPATH "Notes/"		# Notes path
+    LIBPATH = PDFPATH "Libs/"		# Libraries path
+    APXPATH = PDFPATH "Appendices/"	# Appendices path
+    movement = "default";		# movement cannot be empty
 
 
     #####################
@@ -84,15 +84,15 @@ BEGIN {
 
 	# search on crossref: by text or by metadata
 	if (response == choice[1] || \
-	    response ~ /^[[:alpha:]]*:[[:blank:]][[:blank:]]+.*$/) {
+	    response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
 	    if (response == choice[1]) {
 		string = notify("Type string to search on crossref:", string)
 		clear_screen()
 		str = string
 		gsub(/ /, "+", string)
 	    }
-	    if (response ~ /^[[:alpha:]]*:[[:blank:]][[:blank:]]+.*$/) {
-	        gsub(/^[[:alpha:]]*:[[:blank:]][[:blank:]]+/, "", response)
+	    if (response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
+		gsub(/\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)/, "", response)
 		string = response
 		str = string
 		gsub(/ /, "+", string)
@@ -210,26 +210,25 @@ BEGIN {
 		    continue
 		}
 		else {
-		    cmd = "pdfinfo \"" pdfarr[file] "\""
-		    cmd | getline info
-		    close(cmd)
-		    match(info, "Title:          ")
+		    meta_extract(pdfarr[file])
+		    match(metadata, /\/Title[[:blank:]]?\([[:blank:]]?.*\)/)
 		    if (RSTART) {
-			gsub(/.*Title:          |\n.*/, "", info)
-			if (info != "") {
-			    match(metalist, info)
+			metadata = substr(metadata, RSTART, RLENGTH)
+			gsub(/\/Title[[:blank:]]?\([[:blank:]]?|\)/, "", metadata)
+			if (metadata != "") {
+			    match(metalist, metadata)
 			    if (RSTART) {
 				for (data in metalistarr) {
-				    match(metalistarr[data], info)
+				    match(metalistarr[data], metadata)
 				    if (RSTART) {
 					split(metalistarr[data], metaarr, "\n")
-					meta_to_file(basename ".pdf", \
+					meta_to_file(pdfarr[file], \
 						     metaarr[1], metaarr[2], \
 						     metaarr[5], metaarr[4], \
 						     metaarr[6])
-					system("rm \"" pdfarr[file] "\";" \
-					       "mv \"/tmp/" metaarr[1] ".pdf\" " \
-					       "\"" PDFPATH metaarr[1] ".pdf\"" )
+					system("mv \"/tmp/" metaarr[1] ".pdf\" " \
+					       "\"" PDFPATH metaarr[1] ".pdf\" && " \
+					       "rm \"" pdfarr[file] "\";")
 				    }
 				}
 			    }
@@ -278,6 +277,7 @@ BEGIN {
 	    tmsg = "Choose BibTeX to " response
 	    bmsg = "Action: edit sublibraries"
 	    movement = response
+	    continue
 	}
 
 	if (response == RMV) {
@@ -307,12 +307,19 @@ BEGIN {
 
 
 	# search on crossref: get bibtex
-	if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
+	if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/ || \
+	    response ~ /^10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+$/) {
 	    bib_get = 1
-	    split(response, fieldarr, "\n")
-	    gsub(/\tDOI: /, "", fieldarr[6])
+	    if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
+		split(response, fieldarr, "\n")
+		gsub(/\tDOI: /, "", fieldarr[6])
+		doi = fieldarr[6]
+	    }
+	    if (response ~ /^10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+$/) {
+		doi = response
+	    }
 	    cmd = "curl -s \"http://api.crossref.org/works/" \
-		fieldarr[6] \
+		doi \
 		"/transform/application/x-bibtex\""
 	    cmd | getline bibtex
 	    close(cmd)
@@ -321,7 +328,7 @@ BEGIN {
 	    bibtex = label_alter(bibtex)
 
 	    notify("BibTeX listed below, press enter to continue...\n" bibtex)
-	    yesno("Add this BibTeX to" BIBFILE "?")
+	    yesno("Add this BibTeX to " BIBFILE "?")
 	    continue
 	}
 
@@ -329,11 +336,9 @@ BEGIN {
 	if (response ~ /.*\.[[:alpha:]][[:alpha:]][[:alpha:]]/) {
 	    if (action == choice[2]) {
 		# search on crossref by pdf metadata
-		cmd = "pdfinfo \"" PDFPATH response "\""
-		cmd | getline info
-		close(cmd)
+		meta_extract(PDFPATH response)
 		save()
-		list = info "\n" "Go Back...";
+		list = metadata "\n" "Go Back...";
 		delim = "\n";
 		num = 1;
 		tmsg = "Choose metadata to search"
@@ -368,7 +373,7 @@ BEGIN {
 		num = 6;
 	        tmsg = "Choose BibTeX entry to build database: "
 		bmsg = "Action: manually build database"
-		file = response
+		file = PDFPATH response
 	    }
 	    if (action == choice[14]) { # open sublibrary
 		file = LIBPATH response
@@ -527,7 +532,8 @@ BEGIN {
 		    for (entry in bibarr) {
 			if (bibarr[entry] ~ regex) {
 			    print "@" bibarr[entry] >> file
-			    notify(label " added to " file)
+			    notify(label " added to " file \
+				   "; press enter to continue")
 			    clear_screen()
 			}
 		    }
@@ -592,19 +598,6 @@ BEGIN {
 		continue
 	    }
 
-	    # if (bib_edit == 1) {
-		# srand()
-		# tmpfile = "/tmp/" sprintf("%x", 2095479*rand()) ".tmp"
-		# printf("%s", bibtex) > tmpfile
-		# system(EDITOR " " tmpfile)
-		# getline bibtex < tmpfile
-		# close(tmpfile)
-		# print "\n" bibtex "\n" >> BIBFILE
-		# yesno("Download corresponding pdf file?")
-		# download = 1; bib_edit = 0;
-		# continue
-	    # }
-
 	    ## search on crossref: download
 	    if (download == 1) {
 		split(bibtex, bibtexarr, "\n")
@@ -629,21 +622,34 @@ BEGIN {
 
 	    ## update database
 	    if (database == 1) {
-		system("rm \"" PDFPATH file "\";" \
-		       "mv \"/tmp/" label ".pdf\" \
-			   \"" PDFPATH label ".pdf\"" )
+		system("mv \"/tmp/" label ".pdf\" \
+			   \"" PDFPATH label ".pdf\" && " \
+		       "rm \"" file "\";")
 		notify(label " updated; press enter to continue")
 		back = 1; database = 0
 	    }
 	    if (database == 2) {
-		system("rm \"" PDFPATH file "\";" \
-		       "mv \"/tmp/" label ".pdf\" \
-			   \"" PDFPATH label ".pdf\"" )
-		gsub(file, "", faillist)
-		gsub("\f\f", "\f", faillist)
+		system("mv \"/tmp/" label ".pdf\" \
+			   \"" PDFPATH label ".pdf\" && " \
+		       "rm \"" file "\";")
+		orig = file; gsub(PDFPATH, "", file)
+		name = file; file = orig; orig = "";
+		match(faillist, name)
+		if (length(faillist) == RSTART + RLENGTH - 1) {
+		    prev = substr(faillist, 1, RSTART - 2)
+		    post = ""
+		}
+		else {
+		    prev = substr(faillist, 1, RSTART - 1)
+		    post = substr(faillist, RSTART + RLENGTH + 1)
+		}
+
+		faillist = prev post
+
 
 		save()
 		backtext = "All PDF files in database is updated!"
+		list = faillist
 		list = ( faillist == "" ? \
 			backtext : \
 			faillist "\f" "Main Menu" );
@@ -762,11 +768,40 @@ function yesno(topmsg) {
 function meta_to_file(file, label, title, author, journal, doi) {
     system("gs -o \"/tmp/" label ".pdf\" \\" \
 	   "-sDEVICE=pdfwrite \\" \
-	   "-f \"" PDFPATH file "\" \\" \
+	   "-f \"" file "\" \\" \
 	   "-c \"[ /Title (" title ")" \
 	   "/Author (" author ")" \
-	   "/Subject (" journal " doi:" doi ")" \
+	   "/Subject (" journal ")" \
+	   "/WPS-ARTICLEDOI (" doi ")" \
 	   "/DOCINFO pdfmark\" 1>/dev/null 2>&1; ")
+}
+
+function meta_extract(file) {
+    LANG = ENVIRON["LANG"];		# save LANG
+    ENVIRON["LANG"] = C;		# simplest locale setting
+    RS = "\n"
+    i = 0
+    while (getline < file > 0) {
+	match($0, \
+	    /\/Title[[:blank:]]?\([^\(]*\)|\/Author[[:blank:]]?\([^\(]*\)|\/Subject[[:blank:]]?\([^\(]*\)|\/WPS-ARTICLEDOI[[:blank:]]?\([^\(]*\)|\/CreationDate[[:blank:]]?\([^\(]*\)|\/ModDate[[:blank:]]?\([^\(]*\)/)
+	if(RSTART) {
+	    i++
+	    temp[i] = substr($0, RSTART, RLENGTH)
+	}
+    }
+    close(file)
+
+    # metadata at the bottom of the file
+    for (j = 0; j <= 6; j++) {
+	info = info "\n" temp[i - j]
+    }
+
+    ENVIRON["LANG"] = LANG;		# restore LANG
+    RS = "\f"
+    split("", temp, ":") # delete temp array
+    metadata = info
+    info = ""
+    clear_screen()
 }
 
 function label_alter(bibtex) {
@@ -908,7 +943,6 @@ function ref_gen(BIBFILE) {
 	    }
 	}
 
-	# bibarr[entry] = label "\n" title "\n" year "\n" journal "\n" author "\n" doi
 	biblist = biblist "\f" \
 		  label "\n" \
 		  title "\n" \

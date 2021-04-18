@@ -16,7 +16,7 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 - Menu system: [shellect](https://github.com/huijunchen9260/shellect)
 - clipboard: `xclip` or `xsel` for linux (require configuration), `pbcopy` and `pbpaste` for Mac OS
 - file opener: `xdg-open` for linux, `open` for Mac OS
-- `gs` for pdf metadata encoding, [pdfinfo](https://linux.die.net/man/1/pdfinfo) to extract pdf metadata
+- `gs` for pdf metadata encoding, ~~[pdfinfo](https://linux.die.net/man/1/pdfinfo) to extract pdf metadata~~
 - `curl` to search on Internet
 - `xdotool` to hide / show terminal when open graphical software, not necessary
 - other shell utilities: `rm`, `mv`, `file`, `printf`, `mkdir`, `stty`
@@ -34,7 +34,7 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 	read the API manual!
      - directly pull out field needed.
  - search on crossref by metadata
-     - use [pdfinfo](https://linux.die.net/man/1/pdfinfo) to extract pdf metadata
+     - ~~use [pdfinfo](https://linux.die.net/man/1/pdfinfo) to extract pdf metadata~~
  - search on google scholar
      - search using following url: `
 https://scholar.google.com/scholar?q=string+to+search 2>&1 1>/dev/null &`
