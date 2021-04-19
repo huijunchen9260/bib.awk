@@ -6,6 +6,21 @@ BEGIN {
     #  Configuration  #
     ###################
 
+    ## Configuration explanation:
+    ##   - If you want to use environment variable VAR: ENVIRON["VAR"]
+    ##   - BIBFILE defines the location of your .bib file
+    ##   - BIBUKEY defines the university url for journal authentication
+    ##   - PDFPATH defines the location of all your research papers
+    ##     - needs to have slash at the BEGINNING and the END of the string
+    ##   - OPENER defines the system default file opener
+    ##   - READER defines the pdf file opener
+    ##   - EDITOR defines the text file opener
+    ##   - BROWSER defines the browser to open url
+    ##   - TEXTEMP defines the location for tex template for Notes
+    ##     - needs to have slash at the BEGINNING of the string
+    ##   - CLIPINW defines the command to copy into clipboard
+    ##   - CLIPOUT defines the command to copy out from clipboard
+
     BIBFILE = ENVIRON["HOME"] "/Documents/LaTeX/hjref.bib"
     BIBUKEY = ENVIRON["BIB_UNI_KEY"]
     PDFPATH = ENVIRON["HOME"] "/Documents/Papers/"
@@ -14,11 +29,9 @@ BEGIN {
     EDITOR = ( ENVIRON["EDITOR"] == "" ? OPENER : ENVIRON["EDITOR"] )
     BROWSER = ( ENVIRON["BROWSER"] == "" ? OPENER : ENVIRON["BROWSER"] )
     TEXTEMP = ENVIRON["HOME"] "/.local/bin/hjapps/bib.awk/template.tex"
-    # copy into clipboard
     CLIPINW = ( ENVIRON["OSTYPE"] ~ /darwin.*/ ? \
 		"pbcopy" : \
 		"xclip -selection clipboard" )
-    # copy out from clipboard
     CLIPOUT = ( ENVIRON["OSTYPE"] ~ /darwin.*/ ? \
 		"pbpaste" : \
 		"xclip -o -selection clipboard" )
@@ -82,7 +95,8 @@ BEGIN {
 	#  Action Matching  #
 	#####################
 
-	# search on crossref: by text or by metadata
+	# search on crossref by text: layer 1
+	# search on crossref by metadata: layer 3 if not doi
 	if (response == choice[1] || \
 	    response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
 	    if (response == choice[1]) {
@@ -109,7 +123,8 @@ BEGIN {
 	    continue
 	}
 
-	# search on crossref by metadata / build database
+	# search on crossref by metadata: layer 1
+	# manually build database: layer 1
 	if (response == choice[2] || response == choice[12]) {
 	    cmd = "printf '%s\n' " PDFPATH "*.pdf"
 	    cmd | getline pdf
@@ -129,7 +144,8 @@ BEGIN {
 	    continue
 	}
 
-	# search on google scholar
+	# search on google scholar: layer 1
+	# search on crossref by text: layer 3 if gscholar
 	if (response == choice[3] || response == gscholar) {
 	    if (response == choice[3]) {
 		string = notify("Type string to search on google scholar:", string)
@@ -155,7 +171,14 @@ BEGIN {
 	    }
 	}
 
-	# bib entry selection
+	# open research paper: layer 1
+	# open research paper website: layer 1
+	# copy BibTeX label: layer 1
+	# write note: layer 1
+	# open research appendices: layer 1
+	# edit existing BibTeX entry: layer 1
+	# manually create file hierarchy: layer 1
+	# create sublibraries: layer 1
 	if (response == choice[4] || \
 	    response == choice[5] || \
 	    response == choice[6] || \
@@ -181,7 +204,7 @@ BEGIN {
 	    continue
 	}
 
-	# automatically create file hierarchy
+	# automatically create file hierarchy: layer 1
 	if (response == choice[11]) {
 	    ref_gen(BIBFILE)
 	    split(labellist, labellistarr, "\n")
@@ -193,7 +216,7 @@ BEGIN {
 	    }
 	}
 
-	# automatically build database
+	# automatically build database: layer 1
 	if (response == choice[13]) {
 	    faillist = ""
 	    ref_gen(BIBFILE)
@@ -226,9 +249,10 @@ BEGIN {
 						     metaarr[1], metaarr[2], \
 						     metaarr[5], metaarr[4], \
 						     metaarr[6])
-					system("mv \"/tmp/" metaarr[1] ".pdf\" " \
-					       "\"" PDFPATH metaarr[1] ".pdf\" && " \
-					       "rm \"" pdfarr[file] "\";")
+					# system("mv \"/tmp/" metaarr[1] ".pdf\" " \
+					#        "\"" PDFPATH metaarr[1] ".pdf\" && " \
+					#        "rm \"" pdfarr[file] "\";")
+					mv_rm(pdfarr[file], metaarr[1])
 				    }
 				}
 			    }
@@ -264,30 +288,9 @@ BEGIN {
 	    }
 	}
 
-	if (response == ADD || response == DEL) {
-	    if (response == ADD) {
-	        ref_gen(BIBFILE)
-	    }
-	    else if (response == DEL) {
-		ref_gen(file)
-	    }
-	    list = biblist "\f" "Go Back...\n\n\n\n\n";
-	    delim = "\f";
-	    num = 6;
-	    tmsg = "Choose BibTeX to " response
-	    bmsg = "Action: edit sublibraries"
-	    movement = response
-	    continue
-	}
-
-	if (response == RMV) {
-	    movement = response
-	    yesno("Really remove " file "?")
-	    continue
-	}
-
+	# open sublibraries: layer 1
+	# edit sublibraries: layer 1
 	if (response == choice[14] || response == choice[16]) {
-	    # open / edit sublibrary
 	    cmd = "printf '%s\n' " LIBPATH "*.bib"
 	    cmd | getline library
 	    close(cmd)
@@ -306,16 +309,18 @@ BEGIN {
 	}
 
 
-	# search on crossref: get bibtex
+	# search on crossref by text: layer 2
+	# search on crossref by metadata: layer 3 if doi
 	if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/ || \
-	    response ~ /^10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+$/) {
+	    response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
 	    bib_get = 1
 	    if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
 		split(response, fieldarr, "\n")
 		gsub(/\tDOI: /, "", fieldarr[6])
 		doi = fieldarr[6]
 	    }
-	    if (response ~ /^10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+$/) {
+	    if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
+		gsub(/^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)$/, "", response)
 		doi = response
 	    }
 	    cmd = "curl -s \"http://api.crossref.org/works/" \
@@ -333,9 +338,10 @@ BEGIN {
 	}
 
 	# choosing a file
-	if (response ~ /.*\.[[:alpha:]][[:alpha:]][[:alpha:]]/) {
-	    if (action == choice[2]) {
-		# search on crossref by pdf metadata
+	if (response ~ /^.*\.[[:alpha:]][[:alpha:]][[:alpha:]]$/) {
+
+	    ## search on crossref by metadata: layer 2
+	    if (action == choice[2]) { # search on crossref by pdf metadata
 		meta_extract(PDFPATH response)
 		save()
 		list = metadata "\n" "Go Back...";
@@ -345,6 +351,8 @@ BEGIN {
 		bmsg = "Action: search pdf metadata on crossref"
 		continue
 	    }
+
+	    ## open research appendices: layer 2
 	    if (action == choice[8]) { # open appendices
 		file = APXPATH label "/" response
 		cmd = "file --mime-type -b \"" file "\" 2>/dev/null"
@@ -354,18 +362,20 @@ BEGIN {
 		    system(OPENER " " file)
 		}
 		else {
-		    cmd = "xdotool getactivewindow"
+		    cmd = "xdotool getactivewindow &"
 		    cmd | getline wid
 		    close(cmd)
-		    system("xdotool windowunmap " wid)
+		    system("xdotool windowunmap " wid " &")
 		    system(OPENER " " file)
-		    system("xdotool windowmap " wid)
+		    system("xdotool windowmap " wid " &")
 		}
 		back = 1;
 		continue
 	    }
+
+	    ## manually build database: layer 2
+	    ## automatically update database: layer 2
 	    if (action == choice[12] || action == choice[13]) {
-		# manually build database
 		ref_gen(BIBFILE)
 		save()
 		list = biblist "\f" "Go Back...\n\n\n\n\n";
@@ -375,6 +385,8 @@ BEGIN {
 		bmsg = "Action: manually build database"
 		file = PDFPATH response
 	    }
+
+	    ## open sublibraries: layer 2
 	    if (action == choice[14]) { # open sublibrary
 		file = LIBPATH response
 		ref_gen(file)
@@ -385,6 +397,8 @@ BEGIN {
 	        tmsg = "Choose BibTeX in " response " to open research paper"
 		bmsg = "Action: open sublibraries"
 	    }
+
+	    ## edit sublibraries: layer 2
 	    if (action == choice[16]) { # edit sublibrary
 		file = LIBPATH response
 		save()
@@ -397,6 +411,30 @@ BEGIN {
 	        tmsg = "Choose action for " response
 		bmsg = "Action: edit sublibraries"
 	    }
+	}
+
+	# edit sublibraries: layer 3
+	if (response == ADD || response == DEL) {
+	    if (response == ADD) {
+	        ref_gen(BIBFILE)
+	    }
+	    else if (response == DEL) {
+		ref_gen(file)
+	    }
+	    list = biblist "\f" "Go Back...\n\n\n\n\n";
+	    delim = "\f";
+	    num = 6;
+	    tmsg = "Choose BibTeX to " response
+	    bmsg = "Action: edit sublibraries"
+	    movement = response
+	    continue
+	}
+
+	# edit sublibraries: layer 3
+	if (response == RMV) {
+	    movement = response
+	    yesno("Really remove " file "?")
+	    continue
 	}
 
 
@@ -415,19 +453,24 @@ BEGIN {
 	    author = fieldarr[5]
 	    gsub(/[[:blank:]]*DOI:[[:blank:]]*/, "", fieldarr[6]);
 	    doi = fieldarr[6]
+
+	    ## open research paper: layer 2
+	    ## open sublibraries: layer 3
 	    if (action == choice[4] || action == choice[14]) { # open pdf
-		cmd = "xdotool getactivewindow"
+		cmd = "xdotool getactivewindow &"
 		cmd | getline wid
 		close(cmd)
-		system("xdotool windowunmap " wid)
+		system("xdotool windowunmap " wid " &")
 		system(READER " " PDFPATH label ".pdf")
-		system("xdotool windowmap " wid)
+		system("xdotool windowmap " wid " &")
 		if (action == choice[14]) {
 		    load()
 		}
 		continue
 	    }
-	    if (action == choice[5]) { # open research site
+
+	    ## open research paper website: layer 2
+	    if (action == choice[5]) {
 		if (doi == "") {
 		    notify("Cannot find DOI; press enter to continue")
 		    back = 1;
@@ -438,18 +481,24 @@ BEGIN {
 		    back = 1
 		}
 	    }
-	    if (action == choice[6]) { # copy label
+
+	    ## copy BibTeX label: layer 2
+	    if (action == choice[6]) {
 		system("printf '%s' \"" label "\" | " CLIPINW)
 		notify(label " has copied to clipboard using " \
 		       CLIPINW "; press enter to continue...")
 		back = 1
 	    }
-	    if (action == choice[7]) { # write notes
+
+	    ## write note: layer 2
+	    if (action == choice[7]) {
 		system("mkdir -p " NTEPATH label)
 		tex_template(NTEPATH label "/" label ".tex", title, author)
 		system(EDITOR " " NTEPATH label "/" label ".tex")
 	    }
-	    if (action == choice[8]) { # open appendices
+
+	    ## open research appendices: layer 2
+	    if (action == choice[8]) {
 		cmd = "printf '%s\n' " APXPATH label "/*"
 		cmd | getline pdf
 		close(cmd)
@@ -468,7 +517,9 @@ BEGIN {
 		bmsg = "Action: " action
 		continue
 	    }
-	    if (action == choice[9]) { # edit bibtex entry
+
+	    ## edit existing BibTeX entry: layer 2
+	    if (action == choice[9]) {
 		getline BIB < BIBFILE
 		close(BIBFILE)
 		split(BIB, bibarr, "@")
@@ -495,8 +546,9 @@ BEGIN {
 		ref_gen(BIBFILE)
 		list = biblist "\f" "Go Back...\n\n\n\n\n";
 	    }
+
+	    ## manually create file hierarchy: layer 2
 	    if (action == choice[10]) {
-		# manually create file hierarchy
 		system("mkdir -p " NTEPATH label "; " \
 		       "mkdir -p " APXPATH label "; " )
 
@@ -507,15 +559,19 @@ BEGIN {
 		       "press enter to continue")
 		back = 1;
 	    }
+
+	    ## manually build database: layer 3
+	    ## automatically update database: layer 3
 	    if (action == choice[12] || action == choice[13]) {
-		# manually build database
 		meta_to_file(file, label, title, author, journal, doi)
 		yesno("Update " file " to " label)
 		database = ( action == choice[12] ? 1 : 2 )
 		continue
 	    }
+
+	    ## create sublibraries: layer 2
+	    ## edit sublibraries: layer 4 if ADD
 	    if (action == choice[15] || movement == ADD) {
-		# create / add BibTeX entry to sublibraries
 		getline FILE < file
 		close(file)
 		getline BIB < BIBFILE
@@ -540,8 +596,9 @@ BEGIN {
 		}
 		continue
 	    }
+
+	    ## edit sublibraries: layer 4 if DEL
 	    if (movement == DEL) {
-	        # delete BibTeX entry from sublibraries
 		content = ""
 		getline FILE < file
 		close(file)
@@ -622,34 +679,28 @@ BEGIN {
 
 	    ## update database
 	    if (database == 1) {
-		system("mv \"/tmp/" label ".pdf\" \
-			   \"" PDFPATH label ".pdf\" && " \
-		       "rm \"" file "\";")
+		mv_rm(file, label)
 		notify(label " updated; press enter to continue")
 		back = 1; database = 0
 	    }
 	    if (database == 2) {
-		system("mv \"/tmp/" label ".pdf\" \
-			   \"" PDFPATH label ".pdf\" && " \
-		       "rm \"" file "\";")
+		mv_rm(file, label)
 		orig = file; gsub(PDFPATH, "", file)
 		name = file; file = orig; orig = "";
 		match(faillist, name)
-		if (length(faillist) == RSTART + RLENGTH - 1) {
+		if (length(faillist) == RSTART + RLENGTH - 1) { # last file
 		    prev = substr(faillist, 1, RSTART - 2)
 		    post = ""
 		}
-		else {
+		else { # other file
 		    prev = substr(faillist, 1, RSTART - 1)
 		    post = substr(faillist, RSTART + RLENGTH + 1)
 		}
 
 		faillist = prev post
 
-
 		save()
 		backtext = "All PDF files in database is updated!"
-		list = faillist
 		list = ( faillist == "" ? \
 			backtext : \
 			faillist "\f" "Main Menu" );
@@ -776,6 +827,16 @@ function meta_to_file(file, label, title, author, journal, doi) {
 	   "/DOCINFO pdfmark\" 1>/dev/null 2>&1; ")
 }
 
+function mv_rm(file, label) {
+    cmd = "mv \"/tmp/" label ".pdf\" \
+	       \"" PDFPATH label ".pdf\"; \
+	       echo $?"
+    cmd | getline exitcode
+    if (exitcode == 0 && file != (PDFPATH label ".pdf") ) {
+	system("rm \"" file "\";")
+    }
+}
+
 function meta_extract(file) {
     LANG = ENVIRON["LANG"];		# save LANG
     ENVIRON["LANG"] = C;		# simplest locale setting
@@ -876,6 +937,7 @@ function label_alter(bibtex) {
 	    bibtex = bibtex "\n" bibtexarr[line]
 	}
     }
+    orig = "";
     return bibtex
 }
 
@@ -922,7 +984,7 @@ function ref_gen(BIBFILE) {
 		year = sprintf("\tYear: %s", entryarr[line])
 	    }
 	    if (entryarr[line] ~ /.*title.*/) {
-		gsub(/^[[:blank:]]*title[[:blank:]]?=[[:blank:]]?{|},$/, "", entryarr[line])
+		gsub(/^[[:blank:]]*title[[:blank:]]?=[[:blank:]]?{|},?$/, "", entryarr[line])
 		meta_title = entryarr[line]
 		title = sprintf("\tTitle: %s", entryarr[line])
 	    }

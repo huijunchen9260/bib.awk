@@ -11,6 +11,25 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 - Create, view and edit sublibrary
 - Write notes for BibTeX entry
 
+## Configuration
+
+Configuration is done within the first section of `bib.awk` file.
+
+Configuration explanation:
+  - If you want to use environment variable `VAR`: `ENVIRON["VAR"]`
+  - `BIBFILE` defines the location of your `.bib` file
+  - `BIBUKEY` defines the university url for journal authentication
+  - `PDFPATH` defines the location of all your research papers
+    `-` needs to have slash at the BEGINNING and the END of the string
+  - `OPENER` defines the system default file opener
+  - `READER` defines the pdf file opener
+  - `EDITOR` defines the text file opener
+  - `BROWSER` defines the browser to open url
+  - `TEXTEMP` defines the location for tex template for Notes
+    - needs to have slash at the BEGINNING of the string
+  - `CLIPINW` defines the command to copy into clipboard
+  - `CLIPOUT` defines the command to copy out from clipboard
+
 ## Requirement
 
 - Menu system: [shellect](https://github.com/huijunchen9260/shellect)
@@ -61,3 +80,8 @@ https://scholar.google.com/scholar?q=string+to+search 2>&1 1>/dev/null &`
  - edit sublibraries
      - add/delete BibTeX entry
      - remove the chosen sublibrary
+
+## Alternatives
+
+- [papis](https://github.com/papis/papis)
+- [pubs](https://github.com/pubs/pubs)
