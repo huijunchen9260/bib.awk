@@ -11,6 +11,10 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 - Create, view and edit sublibrary
 - Write notes for BibTeX entry
 
+## Preview
+
+[![preview](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT.png)](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT)
+
 ## Configuration
 
 Configuration is done within the first section of `bib.awk` file.
