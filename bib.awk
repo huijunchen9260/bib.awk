@@ -155,6 +155,7 @@ BEGIN {
 	    system(BROWSER " " BIBUKEY \
 		      "https://scholar.google.com/scholar?q=" \
 		      string " 2>&1 1>/dev/null &")
+	    clear_screen()
 	    wait_clip()
 	    if (bibtex ~ /^@[[:alpha:]]*{.*$/) {
 		## alternate the label
@@ -249,9 +250,6 @@ BEGIN {
 						     metaarr[1], metaarr[2], \
 						     metaarr[5], metaarr[4], \
 						     metaarr[6])
-					# system("mv \"/tmp/" metaarr[1] ".pdf\" " \
-					#        "\"" PDFPATH metaarr[1] ".pdf\" && " \
-					#        "rm \"" pdfarr[file] "\";")
 					mv_rm(pdfarr[file], metaarr[1])
 				    }
 				}
@@ -360,6 +358,11 @@ BEGIN {
 		close(cmd)
 		if (mimetype ~ /text\/.*|.*x-empty.*|.*json.*/) {
 		    system(OPENER " " file)
+		    clear_screen()
+		}
+		else if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
+		    system(OPENER " " file)
+		    clear_screen()
 		}
 		else {
 		    cmd = "xdotool getactivewindow &"
@@ -368,6 +371,7 @@ BEGIN {
 		    system("xdotool windowunmap " wid " &")
 		    system(OPENER " " file)
 		    system("xdotool windowmap " wid " &")
+		    clear_screen()
 		}
 		back = 1;
 		continue
@@ -457,14 +461,22 @@ BEGIN {
 	    ## open research paper: layer 2
 	    ## open sublibraries: layer 3
 	    if (action == choice[4] || action == choice[14]) { # open pdf
-		cmd = "xdotool getactivewindow &"
-		cmd | getline wid
-		close(cmd)
-		system("xdotool windowunmap " wid " &")
-		system(READER " " PDFPATH label ".pdf")
-		system("xdotool windowmap " wid " &")
-		if (action == choice[14]) {
-		    load()
+
+		if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
+		    system(OPENER " " file)
+		    clear_screen()
+		}
+		else {
+		    cmd = "xdotool getactivewindow &"
+		    cmd | getline wid
+		    close(cmd)
+		    system("xdotool windowunmap " wid " &")
+		    system(READER " " PDFPATH label ".pdf")
+		    system("xdotool windowmap " wid " &")
+		    clear_screen()
+		    if (action == choice[14]) {
+			load()
+		    }
 		}
 		continue
 	    }
@@ -478,6 +490,7 @@ BEGIN {
 		else {
 		    url = "https://doi.org/" doi
 		    system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
+		    clear_screen()
 		    back = 1
 		}
 	    }
@@ -495,6 +508,7 @@ BEGIN {
 		system("mkdir -p " NTEPATH label)
 		tex_template(NTEPATH label "/" label ".tex", title, author)
 		system(EDITOR " " NTEPATH label "/" label ".tex")
+		clear_screen()
 	    }
 
 	    ## open research appendices: layer 2
@@ -532,6 +546,7 @@ BEGIN {
 		    if (bibarr[entry] ~ regex) {
 			printf("@%s", bibarr[entry]) > tmpfile
 			system(EDITOR " " tmpfile)
+			clear_screen()
 			getline ENTRY < tmpfile
 			close(tmpfile)
 			printf("%s", ENTRY) >> bibtmpfile
@@ -542,6 +557,7 @@ BEGIN {
 		}
 		system("cp " bibtmpfile " " BIBFILE \
 		       "; rm " tmpfile " " bibtmpfile)
+		clear_screen()
 
 		ref_gen(BIBFILE)
 		list = biblist "\f" "Go Back...\n\n\n\n\n";
@@ -620,6 +636,7 @@ BEGIN {
 		content = substr(content, 2)
 		print content > tmpfile
 		system("mv " tmpfile " " file)
+		clear_screen()
 
 		# regenerate list for next delete
 		ref_gen(file)

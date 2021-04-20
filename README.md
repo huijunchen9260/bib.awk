@@ -35,7 +35,7 @@ Configuration explanation:
 - Menu system: [shellect](https://github.com/huijunchen9260/shellect)
 - clipboard: `xclip` or `xsel` for linux (require configuration), `pbcopy` and `pbpaste` for Mac OS
 - file opener: `xdg-open` for linux, `open` for Mac OS
-- `gs` for pdf metadata encoding, ~~[pdfinfo](https://linux.die.net/man/1/pdfinfo) to extract pdf metadata~~
+- `gs` (ghostscript) for pdf metadata encoding, [[MacOS]](https://pages.uoregon.edu/koch/), [[Linux and Windows]](https://www.ghostscript.com/download/gsdnld.html)
 - `curl` to search on Internet
 - `xdotool` to hide / show terminal when open graphical software, not necessary
 - other shell utilities: `rm`, `mv`, `file`, `printf`, `mkdir`, `stty`
