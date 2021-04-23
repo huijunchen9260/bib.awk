@@ -76,19 +76,7 @@ BEGIN {
 
     list = menu[1]; delim = menu[2]; num = menu[3]; tmsg = menu[4]; bmsg = menu[5];
 
-    while ("shellect -c \"" list \
-	      "\" -d '" delim \
-	      "' -n " num \
-	      " -t '" tmsg \
-	      "' -b '" bmsg \
-	      "' -i -l" | \
-	      getline response) {
-	close("shellect -c \"" list \
-	      "\" -d '" delim \
-	      "' -n " num \
-	      " -t '" tmsg \
-	      "' -b '" bmsg \
-	      "' -i -l")
+    while (response = mini_TUI(list, delim, num, tmsg, bmsg)) {
 
 	#####################
 	#  Action Matching  #
@@ -1110,4 +1098,97 @@ function crossref_json_process(string) {
     }
     jsonlist = substr(jsonlist, 2)
     return jsonlist
+}
+
+function CUP(lines, cols) {
+    printf("\033\133%s;%sH", lines, cols)
+}
+
+function mini_TUI_setup(list, delim) {
+    answer = ""
+    page = 0
+    printf "\033\1332J\033\133H\033\133?7l" # line unwrap
+    cmd = "stty size"
+    cmd | getline d
+    close(cmd)
+    split(d, dim, " ")
+    top = 5;
+    bottom = dim[1] - 5;
+    fin = bottom - ( bottom - (top - 1) ) % num;
+    end = fin + 1;
+    dispnum = (end - top) / num
+
+    split(list, disp, delim)
+
+    # generate display content for each page (pagearr)
+    for (entry in disp) {
+	if ((+entry) % (dispnum) == 1) { # if first item in each page
+	    pagearr[++page] = entry ". " disp[entry]
+	}
+	else {
+	    pagearr[page] = pagearr[page] "\n" entry ". " disp[entry]
+	}
+    }
+
+    cur = 1
+    ind = (+dispnum > +entry ? entry : dispnum)
+}
+
+function search(list, delim, str) {
+    page = 0;
+    regex = ".*" str ".*"
+    split(list, sdisp, delim)
+    for (entry in sdisp) {
+	match(sdisp[entry], regex)
+	if (RSTART) slist = slist delim disp[entry]
+    }
+    slist = substr(slist, 2)
+    return slist
+}
+
+function mini_TUI(list, delim, num, tmsg, bmsg) {
+    mini_TUI_setup(list, delim)
+    while (answer !~ /^[[:digit:]]+$/) {
+	clear_screen()
+	CUP(1, 1)
+	printf "[\033\1331mn\033\133m]ext, "\
+	       "[\033\1331mp\033\133m]rev, "\
+	       "[\033\1331mr\033\133m]eload, "\
+	       "[\033\1331mt\033\133m]op, "\
+	       "[\033\1331mb\033\133m]ottom, "\
+	       "[\033\1331m[0-9]G\033\133m]o to page, "\
+	       "[\033\1331m/s\033\133m]earch"
+	CUP(3, 1)
+	print tmsg
+	CUP(dim[1] - 3, 1)
+	print bmsg
+	CUP(top, 1)
+	print pagearr[cur]
+	CUP(dim[1] - 1, 1)
+
+	printf "Choose [\033\1331m1-%d\033\133m], "\
+	       "current page num is \033\1331m%d\033\133m, "\
+	       "total page num is \033\1331m%d\033\133m: ", \
+	       entry, cur, page
+	RS = "\n" # stop getline by enter
+	getline answer < "-"
+	RS = "\f"
+
+	if ( (answer == "n" || answer == "") && +cur < +page) cur++
+	if ( (answer == "p" || answer == " ") && +cur > 1) cur--
+	if ( (answer == "t" || answer == "g") ) cur = 1
+	if ( (answer == "b" || answer == "G") ) cur = page
+	if ( (answer ~ /[[:digit:]]+G/) ) {
+	    ans = answer; gsub(/G/, "", ans); cur = ans;
+	}
+	if (answer == "r") mini_TUI_setup(list, delim)
+	# if (answer ~ /[[:alpha:]]+/) {
+	if (answer ~ /\/[^[:cntrl:]*]/) {
+	    ans = substr(answer, 2)
+	    slist = search(list, delim, ans)
+	    mini_TUI_setup(slist, delim)
+	}
+    }
+
+    return disp[answer]
 }

@@ -13,7 +13,11 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 
 ## Preview
 
-[![preview](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT.png)](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT)
+### bib.awk Preview
+[![bib.awk preview](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT.png)](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT)
+
+### bib_tui.awk Preview
+[![bib_tui.awk preview](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG.png)](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG)
 
 ## Configuration
 
@@ -36,7 +40,7 @@ Configuration explanation:
 
 ## Requirement
 
-- Menu system: [shellect](https://github.com/huijunchen9260/shellect)
+- Menu system: [shellect](https://github.com/huijunchen9260/shellect) (not required if use `bib_tui.awk`
 - clipboard: `xclip` or `xsel` for linux (require configuration), `pbcopy` and `pbpaste` for Mac OS
 - file opener: `xdg-open` for linux, `open` for Mac OS
 - `gs` (ghostscript) for pdf metadata encoding, [[MacOS]](https://pages.uoregon.edu/koch/), [[Linux and Windows]](https://www.ghostscript.com/download/gsdnld.html)
