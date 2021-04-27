@@ -234,7 +234,7 @@ BEGIN {
 		}
 		else {
 		    meta_extract(pdfarr[file])
-		    match(metadata, /\/Title[[:blank:]]?\([[:blank:]]?.*\)/)
+		    match(metadata, /^\/Title[[:blank:]]?\([[:blank:]]?.*$\)/)
 		    if (RSTART) {
 			metadata = substr(metadata, RSTART, RLENGTH)
 			gsub(/\/Title[[:blank:]]?\([[:blank:]]?|\)/, "", metadata)
@@ -812,13 +812,11 @@ function restore() {
 }
 
 function notify(msg, str) {
-    system("stty -cread icanon echo 1>/dev/null 2>&1")
     print msg
     RS = "\n" # stop getline by enter
     getline str < "-"
     RS = "\f"
     return str
-    system("stty sane")
 }
 
 function yesno(topmsg) {
@@ -872,6 +870,7 @@ function meta_extract(file) {
     for (j = 0; j <= 6; j++) {
 	info = info "\n" temp[i - j]
     }
+    info = substr(info, 2)
 
     ENVIRON["LANG"] = LANG;		# restore LANG
     RS = "\f"

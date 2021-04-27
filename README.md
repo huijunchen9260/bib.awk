@@ -11,6 +11,19 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 - Create, view and edit sublibrary
 - Write notes for BibTeX entry
 
+<!-- vim-markdown-toc GFM -->
+
+* [Preview](#preview)
+	* [bib.awk Preview](#bibawk-preview)
+	* [bib_tui.awk Preview](#bib_tuiawk-preview)
+* [Installation guide](#installation-guide)
+* [Configuration](#configuration)
+* [Requirement](#requirement)
+* [Actions explained](#actions-explained)
+* [Alternatives](#alternatives)
+
+<!-- vim-markdown-toc -->
+
 ## Preview
 
 ### bib.awk Preview
@@ -19,9 +32,21 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 ### bib_tui.awk Preview
 [![bib_tui.awk preview](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG.png)](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG)
 
+## Installation guide
+
+Contribution to use it in repository in distro is welcome. Here is a simple guide for manual installation:
+
+1. `git clone https://github.com/huijunchen9260/bib.awk` to download bib.awk to directory.
+2. To install on linux:
+    - Run `sudo make install` to install both `bib.awk` and `bib_tui.awk`.
+    - Run `sudo make install-bib` to install `bib.awk`.
+    - Run `sudo make install-tui` to install `bib_tui.awk`.
+3. If you are using `bib.awk`, remember to install [shellect](https://github.com/huijunchen9260/shellect). If you just want to try out with the least dependency, use `bib_tui.awk`.
+4. Configuration is necessary. You definitely need to set `BIBFILE` and `PDFPATH` for basic function to work. For detailed explanation, see [Configuration](#configuration).
+
 ## Configuration
 
-Configuration is done within the first section of `bib.awk` file.
+Configuration is done within the first section of `bib.awk` / `bib_tui.awk` file.
 
 Configuration explanation:
   - If you want to use environment variable `VAR`: `ENVIRON["VAR"]`
@@ -37,6 +62,7 @@ Configuration explanation:
     - needs to have slash at the BEGINNING of the string
   - `CLIPINW` defines the command to copy into clipboard
   - `CLIPOUT` defines the command to copy out from clipboard
+
 
 ## Requirement
 
