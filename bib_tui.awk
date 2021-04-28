@@ -800,11 +800,13 @@ function restore() {
 }
 
 function notify(msg, str) {
+    system("stty -cread icanon echo 1>/dev/null 2>&1")
     print msg
     RS = "\n" # stop getline by enter
     getline str < "-"
     RS = "\f"
     return str
+    system("stty sane")
 }
 
 function yesno(topmsg) {

@@ -11,6 +11,8 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 - Create, view and edit sublibrary
 - Write notes for BibTeX entry
 
+## Table of Content
+
 <!-- vim-markdown-toc GFM -->
 
 * [Preview](#preview)

@@ -790,12 +790,11 @@ function clear_screen() { # clear screen and move cursor to 0, 0
 }
 
 function tex_template(file, title, author) {
-    if (getline template < TEXTEMP == 0) {
-	gsub(/TITLE/, title, template)
-	gsub(/AUTHOR/, author, template)
-	gsub(/BIB/, BIBFILE, template)
-	print template > file
-    }
+    getline template < TEXTEMP
+    gsub(/TITLE/, title, template)
+    gsub(/AUTHOR/, author, template)
+    gsub(/BIB/, BIBFILE, template)
+    print template > file
 }
 
 function restore() {
@@ -812,11 +811,13 @@ function restore() {
 }
 
 function notify(msg, str) {
+    system("stty -cread icanon echo 1>/dev/null 2>&1")
     print msg
     RS = "\n" # stop getline by enter
     getline str < "-"
     RS = "\f"
     return str
+    system("stty sane")
 }
 
 function yesno(topmsg) {
