@@ -21,9 +21,9 @@ BEGIN {
     ##   - CLIPINW defines the command to copy into clipboard
     ##   - CLIPOUT defines the command to copy out from clipboard
 
-    BIBFILE = ENVIRON["HOME"] "/Documents/LaTeX/hjref.bib"
+    BIBFILE = ENVIRON["BIB"]
     BIBUKEY = ENVIRON["BIB_UNI_KEY"]
-    PDFPATH = ENVIRON["HOME"] "/Documents/Papers/"
+    PDFPATH = ENVIRON["BIB_PDF_PATH"]
     OPENER = ( ENVIRON["OSTYPE"] ~ /darwin.*/ ? "open" : "xdg-open" )
     READER = ( ENVIRON["READER"] == "" ? OPENER : ENVIRON["READER"] )
     EDITOR = ( ENVIRON["EDITOR"] == "" ? OPENER : ENVIRON["EDITOR"] )
