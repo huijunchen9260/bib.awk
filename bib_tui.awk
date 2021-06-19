@@ -297,14 +297,16 @@ BEGIN {
 	# search on crossref by text: layer 2
 	# search on crossref by metadata: layer 3 if doi
 	if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/ || \
-	    response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
+	    response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
+	    # response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
 	    bib_get = 1
 	    if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
 		split(response, fieldarr, "\n")
 		gsub(/\tDOI: /, "", fieldarr[6])
 		doi = fieldarr[6]
 	    }
-	    if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
+	    # if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
+	    if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
 		gsub(/^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)$/, "", response)
 		doi = response
 	    }
@@ -753,6 +755,14 @@ BEGIN {
 
 }
 
+END {
+    printf "\033\1332J" # clear screen
+    printf "\033\133?7h" # line wrap
+    printf "\033\1338" # restore cursor
+    printf "\033\133?1049l" # back from alternate buffer
+    system("stty " tty_setting)
+}
+
 function load() {
     layer--
     response = saved[layer*6 - 5]
@@ -771,10 +781,6 @@ function save() {
     saved[layer*6 - 1] = tmsg
     saved[layer*6] = bmsg
     layer++
-}
-
-function clear_screen() { # clear screen and move cursor to 0, 0
-    printf "\033\1332J\033\133H"
 }
 
 function tex_template(file, title, author) {
@@ -832,9 +838,7 @@ function meta_to_file(file, label, title, author, journal, doi) {
 }
 
 function mv_rm(file, label) {
-    cmd = "mv \"/tmp/" label ".pdf\" \
-	       \"" PDFPATH label ".pdf\"; \
-	       echo $?"
+    cmd = "mv \"/tmp/" label ".pdf\" \"" PDFPATH label ".pdf\"; echo $?"
     cmd | getline exitcode
     if (exitcode == 0 && file != (PDFPATH label ".pdf") ) {
 	system("rm \"" file "\";")
@@ -880,7 +884,7 @@ function label_alter(bibtex) {
     for (line in bibtexarr) {
 	if (bibtexarr[line] ~ /^@.*/) {
 	    orig = bibtexarr[line]
-	    gsub(/{.*/, "", bibtexarr[line])
+	    gsub(/\{.*/, "", bibtexarr[line])
 	    category = bibtexarr[line]
 	    if (category ~ /.*@book.*/) {
 		journal = "Book"
@@ -1101,6 +1105,14 @@ function crossref_json_process(string) {
     return jsonlist
 }
 
+##################
+#  Start of TUI  #
+##################
+
+function clear_screen() { # clear screen and move cursor to 0, 0
+    printf "\033\1332J\033\133H"
+}
+
 function CUP(lines, cols) {
     printf("\033\133%s;%sH", lines, cols)
 }
@@ -1120,7 +1132,6 @@ function menu_TUI_setup(list, delim) {
 
     split(list, disp, delim)
 
-    # generate display content for each page (pagearr)
     for (entry in disp) {
 	if ((+entry) % (dispnum) == 1) { # if first item in each page
 	    pagearr[++page] = entry ". " disp[entry]
@@ -1129,8 +1140,6 @@ function menu_TUI_setup(list, delim) {
 	    pagearr[page] = pagearr[page] "\n" entry ". " disp[entry]
 	}
     }
-    cur = 1
-    ind = (+dispnum > +entry ? entry : dispnum)
 }
 
 function search(list, delim, str) {
@@ -1145,6 +1154,15 @@ function search(list, delim, str) {
 }
 
 function menu_TUI(list, delim, num, tmsg, bmsg) {
+
+    ## save tty setting
+    cmd = "stty -g"
+    cmd | getline tty_setting
+
+    system("stty -cread icanon echo 1>/dev/null 2>&1")
+    printf "\033\133?1049h" # alternate buffer
+    printf "\033\1337" # save cursor
+    cur = 1
     menu_TUI_setup(list, delim)
     while (answer !~ /^[[:digit:]]+$/) {
 	clear_screen()
@@ -1154,33 +1172,64 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
 	       "[\033\1331mr\033\133m]eload, "\
 	       "[\033\1331mt\033\133m]op, "\
 	       "[\033\1331mb\033\133m]ottom, "\
+	       "[\033\1331mf\033\133m]irst, "\
+	       "[\033\1331ml\033\133m]ast, "\
 	       "[\033\1331m[0-9]G\033\133m]o to page, "\
-	       "[\033\1331m/s\033\133m]earch"
+	       "[\033\1331m/\033\133m]search, " \
+	       "[\033\1331mq\033\133m]uit"
 	CUP(3, 1); print tmsg
 	CUP(dim[1] - 2, 1); print bmsg
 	CUP(top, 1); print pagearr[cur]
 	CUP(dim[1], 1)
-	printf "Choose [\033\1331m1-%d\033\133m], "\
-	       "current page num is \033\1331m%d\033\133m, "\
-	       "total page num is \033\1331m%d\033\133m: ", \
+	printf "Choose [\033\133;1m1-%d\033\133m], "\
+	       "current page num is \033\133;1m%d\033\133m, "\
+	       "total page num is \033\133;1m%d\033\133m: ", \
 	       entry, cur, page
-	RS = "\n" # stop getline by enter
-	getline answer < "-"
+
+	RS = "\n"
+	cmd = "saved=$(stty -g); stty raw; var=$(dd bs=1 count=1 2>/dev/null); stty \"$saved\"; printf '%s' \"$var\""
+	cmd | getline answer
+	close(cmd)
 	RS = "\f"
 
-	if (answer == "r") menu_TUI_setup(list, delim)
-	if ( (answer == "n" || answer == "") && +cur < +page) cur++
-	if ( (answer == "p" || answer == " ") && +cur > 1) cur--
+	if ( answer ~ /[[:digit:]]/ || answer == "/" ) {
+	    RS = "\n" # stop getline by enter
+	    getline ans < "-"
+	    answer = answer ans
+	    ans = ""
+	    RS = "\f"
+
+	    ## search
+	    if (answer ~ /\/[^[:cntrl:]*]/) {
+		slist = search(list, delim, substr(answer, 2))
+		menu_TUI_setup(slist, delim)
+		cur = 1
+		continue
+	    }
+
+	    ## go to page
+	    if ( (answer ~ /[[:digit:]]+G/) ) {
+		ans = answer; gsub(/G/, "", ans);
+		cur = (+ans <= +page ? ans : page)
+		continue
+	    }
+
+	    if (+answer > +entry) answer = entry
+	    if (+answer < 1) answer = 1
+	}
+
+	if ( answer == "r" ||
+	   ( answer ~ /[[:digit:]]/ && (+answer > +entry || +answer < +1) ) ) {
+	    menu_TUI_setup(list, delim)
+	    cur = (+cur > +page ? page : cur)
+	}
+	if ( answer == "q" ) exit
+	if ( answer == "f" ) answer = 1
+	if ( answer == "l" ) answer = entry
+	if ( (answer == "n" || answer == "j") && +cur < +page) cur++
+	if ( (answer == "p" || answer == "k") && +cur > 1) cur--
 	if ( (answer == "t" || answer == "g") ) cur = 1
 	if ( (answer == "b" || answer == "G") ) cur = page
-	if ( (answer ~ /[[:digit:]]+G/) ) {
-	    ans = answer; gsub(/G/, "", ans);
-	    if (ans < page) cur = ans
-	}
-	if (answer ~ /\/[^[:cntrl:]*]/) {
-	    slist = search(list, delim, substr(answer, 2))
-	    menu_TUI_setup(slist, delim)
-	}
     }
 
     return disp[answer]

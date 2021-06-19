@@ -4,7 +4,8 @@ Bibliography manager written in awk
 
 Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 
-- Minimal (*only require **POSIX compliant awk***)
+- ~~Minimal (*only require **POSIX compliant awk***)~~
+    - Runs only on `gawk`
 - Search BibTeX on **crossref** and **google scholar**
 - Create and modify bib file on the fly
 - Automatically and manually *rename* and *encode metadata* to pdf file
