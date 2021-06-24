@@ -1,4 +1,4 @@
-#!/usr/bin/awk -f
+#!/usr/bin/mawk -f
 
 BEGIN {
 
@@ -49,6 +49,8 @@ BEGIN {
     #####################
     #  Start of script  #
     #####################
+
+    init()
 
     RS = "\f"
     menu[1] = "search on crossref by text" RS \
@@ -756,11 +758,7 @@ BEGIN {
 }
 
 END {
-    printf "\033\1332J" # clear screen
-    printf "\033\133?7h" # line wrap
-    printf "\033\1338" # restore cursor
-    printf "\033\133?1049l" # back from alternate buffer
-    system("stty " tty_setting)
+    finale()
 }
 
 function load() {
@@ -1105,6 +1103,7 @@ function crossref_json_process(string) {
     return jsonlist
 }
 
+
 ##################
 #  Start of TUI  #
 ##################
@@ -1121,7 +1120,8 @@ function menu_TUI_setup(list, delim) {
     answer = ""
     page = 0
     split("", pagearr, ":") # delete saved array
-    printf "\033\1332J\033\133H\033\133?7l" # line unwrap
+    clear_screen()
+    printf "\033\133?7l" # line unwrap
     cmd = "stty size"
     cmd | getline d
     close(cmd)
@@ -1130,107 +1130,263 @@ function menu_TUI_setup(list, delim) {
     fin = bottom - ( bottom - (top - 1) ) % num; end = fin + 1;
     dispnum = (end - top) / num
 
-    split(list, disp, delim)
+    Narr = split(list, disp, delim)
+    dispnum = (dispnum <= Narr ? dispnum : Narr)
 
-    for (entry in disp) {
-	if ((+entry) % (dispnum) == 1) { # if first item in each page
+    # generate display content for each page (pagearr)
+    for (entry = 1; entry <= Narr; entry++) {
+	if ((+entry) % (+dispnum) == 1) { # if first item in each page
 	    pagearr[++page] = entry ". " disp[entry]
 	}
 	else {
 	    pagearr[page] = pagearr[page] "\n" entry ". " disp[entry]
 	}
     }
+    curpage = 1;
 }
 
 function search(list, delim, str) {
     find = ""; str = tolower(str); regex = ".*" str ".*";
-    split(list, sdisp, delim)
-    for (entry in sdisp) {
+    Narr = split(list, sdisp, delim)
+
+    for (entry = 1; entry <= Narr; entry++) {
 	match(tolower(sdisp[entry]), regex)
 	if (RSTART) find = find delim sdisp[entry]
     }
+
     slist = substr(find, 2)
     return slist
 }
 
+function finale() {
+    printf "\033\1332J\033\133H" > "/dev/stderr" # clear screen
+    printf "\033\133?7h" > "/dev/stderr" # line wrap
+    printf "\033\1338" > "/dev/stderr" # restore cursor
+    printf "\033\133?25h" > "/dev/stderr" # hide cursor
+    printf "\033\133?1049l" > "/dev/stderr" # back from alternate buffer
+    system("stty icanon echo")
+    ENVIRON["LANG"] = LANG; # restore LANG
+}
+
+function init() {
+    system("stty -icanon -echo")
+    printf "\033\1332J\033\133H" > "/dev/stderr" # clear screen
+    printf "\033\133?1049h" > "/dev/stderr" # alternate buffer
+    printf "\033\1337" > "/dev/stderr" # save cursor
+    printf "\033\133?25l" > "/dev/stderr" # hide cursor
+    printf "\033\133?7l" > "/dev/stderr" # line wrap
+    LANG = ENVIRON["LANG"]; # save LANG
+    ENVIRON["LANG"] = C; # simplest locale setting
+}
+
 function menu_TUI(list, delim, num, tmsg, bmsg) {
 
-    ## save tty setting
-    cmd = "stty -g"
-    cmd | getline tty_setting
-
-    system("stty -cread icanon echo 1>/dev/null 2>&1")
-    printf "\033\133?1049h" # alternate buffer
-    printf "\033\1337" # save cursor
-    cur = 1
+    cursor = 1
     menu_TUI_setup(list, delim)
-    while (answer !~ /^[[:digit:]]+$/) {
-	clear_screen()
+    while (answer !~ /^[[:digit:]]+$|\.\.\//) {
+	printf "\033\1332J\033\133H" # clear screen and move cursor to 0, 0
 	CUP(1, 1);
-	printf "[\033\1331mn\033\133m]ext, "\
-	       "[\033\1331mp\033\133m]rev, "\
-	       "[\033\1331mr\033\133m]eload, "\
-	       "[\033\1331mt\033\133m]op, "\
-	       "[\033\1331mb\033\133m]ottom, "\
-	       "[\033\1331mf\033\133m]irst, "\
-	       "[\033\1331ml\033\133m]ast, "\
-	       "[\033\1331m[0-9]G\033\133m]o to page, "\
-	       "[\033\1331m/\033\133m]search, " \
-	       "[\033\1331mq\033\133m]uit"
+	hud = "page: [n]ext, [p]rev, [r]eload, [t]op, [b]ottom, [num+G]o; entry: [h/k/j/l]-[←/↑/↓/→], [/]search, [q]uit"
+	gsub("[[]", "[\033\1331m", hud); gsub("[]]", "\033\133m]", hud)
+	printf hud
+
+	CUP(2, 1)
+	hline = sprintf("%" dim[2] "s", "")
+	gsub(/ /, "━", hline)
+	printf hline
+	CUP(top, 1); print pagearr[curpage]
+	cursor = ( cursor+dispnum*(curpage-1) > Narr ? Narr - dispnum*(curpage-1) : cursor )
+	Ncursor = cursor+dispnum*(curpage-1)
+	CUP(top + cursor*num - num, 1); printf "%s\033\1330;7m%s\033\133m", Ncursor ". ", disp[Ncursor]
 	CUP(3, 1); print tmsg
 	CUP(dim[1] - 2, 1); print bmsg
-	CUP(top, 1); print pagearr[cur]
 	CUP(dim[1], 1)
-	printf "Choose [\033\133;1m1-%d\033\133m], "\
-	       "current page num is \033\133;1m%d\033\133m, "\
-	       "total page num is \033\133;1m%d\033\133m: ", \
-	       entry, cur, page
+	printf "Choose [\033\1331m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: ", Narr, curpage, page
 
-	RS = "\n"
-	cmd = "saved=$(stty -g); stty raw; var=$(dd bs=1 count=1 2>/dev/null); stty \"$saved\"; printf '%s' \"$var\""
-	cmd | getline answer
-	close(cmd)
-	RS = "\f"
-
-	if ( answer ~ /[[:digit:]]/ || answer == "/" ) {
-	    RS = "\n" # stop getline by enter
-	    getline ans < "-"
-	    answer = answer ans
-	    ans = ""
+	while (1) {
+	    RS = "\n"
+	    cmd = "saved=$(stty -g); stty raw; dd bs=1 count=1 2>/dev/null; stty \"$saved\""
+	    cmd | getline answer
+	    close(cmd)
 	    RS = "\f"
 
-	    ## search
-	    if (answer ~ /\/[^[:cntrl:]*]/) {
-		slist = search(list, delim, substr(answer, 2))
-		menu_TUI_setup(slist, delim)
-		cur = 1
-		continue
+	    #######################################
+	    #  Key: entry choosing and searching  #
+	    #######################################
+
+	    if ( answer ~ /[[:digit:]]/ || answer == "/" ) {
+		system("stty icanon echo")
+		CUP(dim[1], 1)
+		printf "Choose [\033\1331m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: %s", Narr, curpage, page, answer
+		RS = "\n"
+		cmd = "read -r ans; echo \"$ans\" 2>/dev/null"
+		cmd | getline ans
+		close(cmd)
+		RS = "\f"
+		system("stty -icanon -echo")
+		answer = answer ans; ans = ""
+
+		if (answer ~ /\/[^[:cntrl:]*]/) {
+		    slist = search(list, delim, substr(answer, 2))
+		    menu_TUI_setup(slist, delim)
+		    break
+		}
+
+		if ( (answer ~ /[[:digit:]]+G/) ) {
+		    ans = answer; gsub(/G/, "", ans);
+		    curpage = (+ans <= +page ? ans : page)
+		    break
+		}
+
+		if (+answer > +Narr) answer = Narr
+		if (+answer < 1) answer = 1
+		break
 	    }
 
-	    ## go to page
-	    if ( (answer ~ /[[:digit:]]+G/) ) {
-		ans = answer; gsub(/G/, "", ans);
-		cur = (+ans <= +page ? ans : page)
-		continue
+	    ########################
+	    #  Key: Total Redraw   #
+	    ########################
+
+	    if ( answer == "r" ||
+	       ( answer ~ /[[:digit:]]/ && (+answer > +Narr || +answer < 1) ) ) {
+		menu_TUI_setup(list, delim)
+		curpage = (+curpage > +page ? page : curpage)
+		break
 	    }
+	    if ( answer == "\r" || answer == "l" ) { answer = Ncursor; break }
+	    if ( answer == "q" ) exit
+	    if ( answer == "h" ) { answer = "../"; disp[answer] = "../"; break }
+	    if ( answer == "n" && +curpage < +page) { curpage++; break }
+	    if ( answer == "n" && +curpage == +page) { cursor = ( +curpage == +page ? Narr - dispnum*(curpage-1) : dispnum ); break }
+	    if ( answer == "p" && +curpage > 1) { curpage--; break }
+	    if ( answer == "p" && +curpage == 1) { cursor = 1; break }
+	    if ( answer == "t" ) { curpage = 1; cursor = 1; break }
+	    if ( answer == "b" ) { curpage = page; cursor = Narr - dispnum*(curpage-1); break }
 
-	    if (+answer > +entry) answer = entry
-	    if (+answer < 1) answer = 1
+	    #########################
+	    #  Key: Partial Redraw  #
+	    #########################
+
+	    if ( answer == "j" && +cursor <= +dispnum ) { oldCursor = cursor; cursor++; }
+	    if ( answer == "j" && +cursor > +dispnum  && page > 1 ) { cursor = 1; curpage++; break }
+	    if ( answer == "k" && +cursor == 1  && curpage > 1 && page > 1 ) { cursor = dispnum; curpage--; break }
+	    if ( answer == "k" && +cursor >= 1 ) { oldCursor = cursor; cursor--; }
+	    if ( answer == "g" ) { oldCursor = cursor; cursor = 1; }
+	    if ( answer == "G" ) { oldCursor = cursor; cursor = ( +curpage == +page ? Narr - dispnum*(curpage-1) : dispnum ); }
+
+	    ################################################
+	    #  Partial redraw: tmsg, old entry, new entry  #
+	    ################################################
+
+	    Ncursor = cursor+dispnum*(curpage-1); oldNcursor = oldCursor+dispnum*(curpage-1);
+	    if (Ncursor > Narr) { Ncursor = Narr; cursor = Narr - dispnum*(curpage-1); continue }
+	    if (Ncursor < 1) { Ncursor = 1; cursor = 1; continue }
+
+	    CUP(3, 1); # tmsg
+	    printf "\033\1332K" # clear line
+	    print tmsg
+
+	    CUP(top + oldCursor*num - num, 1); # old entry
+	    for (i = 1; i < num; i++) {
+		printf "\033\1332K" # clear line
+		CUP(top + oldCursor*num - num + i, 1)
+	    }
+	    CUP(top + oldCursor*num - num, 1);
+	    printf "%s", oldNcursor ". " disp[oldNcursor]
+
+	    CUP(top + cursor*num - num, 1); # new entry
+	    for (i = 1; i < num; i++) {
+		printf "\033\1332K" # clear line
+		CUP(top + cursor*num - num + i, 1)
+	    }
+	    CUP(top + cursor*num - num, 1);
+	    printf "%s\033\1330;7m%s\033\133m", Ncursor ". ", disp[Ncursor]
+
 	}
 
-	if ( answer == "r" ||
-	   ( answer ~ /[[:digit:]]/ && (+answer > +entry || +answer < +1) ) ) {
-	    menu_TUI_setup(list, delim)
-	    cur = (+cur > +page ? page : cur)
-	}
-	if ( answer == "q" ) exit
-	if ( answer == "f" ) answer = 1
-	if ( answer == "l" ) answer = entry
-	if ( (answer == "n" || answer == "j") && +cur < +page) cur++
-	if ( (answer == "p" || answer == "k") && +cur > 1) cur--
-	if ( (answer == "t" || answer == "g") ) cur = 1
-	if ( (answer == "b" || answer == "G") ) cur = page
     }
 
     return disp[answer]
 }
+
+# function menu_TUI(list, delim, num, tmsg, bmsg) {
+
+#     printf "\033\133?1049h" # alternate buffer
+#     printf "\033\1337" # save cursor
+#     cursor = 1
+#     menu_TUI_setup(list, delim)
+#     while (answer !~ /^[[:digit:]]+$/) {
+# 	clear_screen()
+# 	CUP(1, 1);
+# 	hud = "page: [n]ext, [p]rev, [r]eload, [t]op, [b]ottom, [num+G]o; entry: [h/k/j/l]-[←/↑/↓/→], [/]search, [q]uit"
+
+# 	gsub("[[]", "[\033\1331m", hud); gsub("[]]", "\033\133m]", hud)
+# 	printf hud
+
+# 	CUP(2, 1)
+# 	hline = sprintf("%" dim[2] "s", "")
+# 	gsub(/ /, "━", hline)
+# 	printf hline
+# 	CUP(3, 1); print tmsg
+# 	CUP(top, 1); print pagearr[curpage]
+# 	cursor = ( cursor+dispnum*(curpage-1) > Narr ? Narr - dispnum*(curpage-1) : cursor )
+# 	Ncursor = cursor+dispnum*(curpage-1)
+# 	CUP(top + cursor*num - num, 1); printf "\033\1337m%s\033\133m", Ncursor ". " disp[Ncursor]
+# 	CUP(dim[1] - 2, 1); print bmsg
+# 	CUP(dim[1], 1)
+
+# 	printf "Choose [\033\133;1m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: ", Narr, curpage, page
+
+# 	RS = "\n"
+# 	cmd = "saved=$(stty -g); stty raw; dd bs=1 count=1 2>/dev/null; stty \"$saved\""
+# 	cmd | getline answer
+# 	close(cmd)
+# 	RS = "\f"
+
+# 	if ( answer ~ /[[:digit:]]/ || answer == "/" ) {
+# 	    RS = "\n"
+# 	    cmd = "read -r ans; echo \"$ans\""
+# 	    cmd | getline ans
+# 	    close(cmd)
+# 	    RS = "\f"
+# 	    answer = answer ans; ans = ""
+
+# 	    if (answer ~ /\/[^[:cntrl:]*]/) {
+# 		slist = search(list, delim, substr(answer, 2))
+# 		if (slist != "") menu_TUI_setup(slist, delim)
+# 		continue
+# 	    }
+
+# 	    if ( (answer ~ /[[:digit:]]+G/) ) {
+# 		ans = answer; gsub(/G/, "", ans);
+# 		curpage = (+ans <= +page ? ans : page)
+# 		continue
+# 	    }
+
+# 	    if (+answer > +Narr) answer = Narr
+# 	    if (+answer < 1) answer = 1
+# 	}
+
+# 	if ( answer == "r" ||
+# 	   ( answer ~ /[[:digit:]]/ && (+answer > +Narr || +answer < 1) ) ) {
+# 	    menu_TUI_setup(list, delim)
+# 	    curpage = (+curpage > +page ? page : curpage)
+# 	}
+# 	if ( answer == "\r" || answer == "l" ) answer = Ncursor
+# 	if ( answer == "q" ) exit
+# 	if ( answer == "h" ) { disp[answer] = "Go Back..."; break }
+# 	if ( answer == "j" && +cursor <= +dispnum ) cursor++
+# 	if ( answer == "j" && +cursor > +dispnum  && page > 1 ) { cursor = 1; curpage++ }
+# 	if ( answer == "k" && +cursor == 1  && curpage > 1 && page > 1 ) { cursor = dispnum + 1; curpage-- }
+# 	if ( answer == "k" && +cursor > 1 ) cursor--
+# 	if ( answer == "g" ) cursor = 1
+# 	if ( answer == "G" ) cursor = dispnum
+# 	if ( answer == "n" && +curpage < +page) curpage++
+# 	if ( answer == "p" && +curpage > 1) curpage--
+# 	if ( answer == "t" ) curpage = 1
+# 	if ( answer == "b" ) curpage = page
+
+#     }
+
+#     return disp[answer]
+# }
