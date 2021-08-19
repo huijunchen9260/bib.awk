@@ -312,11 +312,25 @@ BEGIN {
 		gsub(/^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)$/, "", response)
 		doi = response
 	    }
-	    cmd = "curl -s \"http://api.crossref.org/works/" \
-		doi \
-		"/transform/application/x-bibtex\""
+        clear_screen()
+        cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
 	    cmd | getline bibtex
 	    close(cmd)
+        Nbibtex = split(bibtex, bibarr, "},")
+        bibtex = ""
+        for (i = 1; i <= Nbibtex; i++) {
+            if (i == 1) {
+                match(bibarr[i], /,.*=/)
+                bibtex = bibtex "\n" substr(bibarr[i], 1, RSTART) "\n\t" substr(bibarr[i], RSTART+1) "},"
+            }
+            else if (i == Nbibtex) {
+                bibtex = bibtex "\n\t" substr(bibarr[i], 1, length(bibarr[i]) - 2) "\n}"
+            }
+            else {
+                bibtex = bibtex "\n\t" bibarr[i] "},"
+            }
+        }
+        bibtex = substr(bibtex, 3)
 
 	    ## alternate the label
 	    bibtex = label_alter(bibtex)
@@ -883,72 +897,79 @@ function label_alter(bibtex) {
     author = ""; journal = ""; orig = "";
     year = ""; category = ""; booktitle = "";
 
-    split(bibtex, bibtexarr, "\n")
+    Nbibtex = split(bibtex, bibtexarr, "\n")
     for (line in bibtexarr) {
-	if (bibtexarr[line] ~ /^@.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/\{.*/, "", bibtexarr[line])
-	    category = bibtexarr[line]
-	    if (category ~ /.*@book.*/) {
-		journal = "Book"
-	    }
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*year.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*year ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    year = bibtexarr[line]
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*author.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*author ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    split(bibtexarr[line], authorarr, " and ")
-	    for (name in authorarr) {
-		gsub(/.* /, "", authorarr[name])
-		author = author "_" authorarr[name]
-	    }
-	    author = substr(author, 2)
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*journal.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*journal ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    if (bibtexarr[line] ~ /.* .*/) {
-		gsub(/[^A-Z]/, "", bibtexarr[line])
-	    }
-	    journal = bibtexarr[line]
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*booktitle.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*booktitle ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    booktitle = bibtexarr[line]
-	    bibtexarr[line] = orig
-	    continue
-	}
+        orig = ""
+        if (bibtexarr[line] ~ /^@.*/) {
+            orig = bibtexarr[line]
+            gsub(/\{.*/, "", bibtexarr[line])
+            category = bibtexarr[line]
+            if (category ~ /.*@book.*/) {
+                journal = "Book"
+            }
+            bibtexarr[line] = orig
+            continue
+        }
+        if (bibtexarr[line] ~ /.*year.*/) {
+            orig = bibtexarr[line]
+            gsub(/.*year ?= ?{?|}?,?$/, "", bibtexarr[line])
+            year = bibtexarr[line]
+            bibtexarr[line] = orig
+            continue
+        }
+        if (bibtexarr[line] ~ /.*author.*/) {
+            orig = bibtexarr[line]
+            gsub(/.*author ?= ?{?|}?,?$/, "", bibtexarr[line])
+            split(bibtexarr[line], authorarr, " and ")
+            for (name in authorarr) {
+                if (authorarr[name] ~ /.*,.*/) { # first is last name
+                    gsub(/,.*/, "", authorarr[name])
+                    author = author "_" authorarr[name]
+                }
+                else { # second is last name
+                    gsub(/.* /, "", authorarr[name])
+                    author = author "_" authorarr[name]
+                }
+            }
+            author = substr(author, 2)
+            bibtexarr[line] = orig
+            continue
+        }
+        if (bibtexarr[line] ~ /.*journal.*/) {
+            orig = bibtexarr[line]
+            gsub(/.*journal ?= ?{?|}?,?$/, "", bibtexarr[line])
+            if (bibtexarr[line] ~ /.* .*/) {
+                gsub(/[^A-Z]/, "", bibtexarr[line])
+            }
+            journal = bibtexarr[line]
+            bibtexarr[line] = orig
+            continue
+        }
+        if (bibtexarr[line] ~ /.*booktitle.*/) {
+            orig = bibtexarr[line]
+            gsub(/.*booktitle ?= ?{?|}?,?$/, "", bibtexarr[line])
+            booktitle = bibtexarr[line]
+            bibtexarr[line] = orig
+            continue
+        }
     }
-
     if (journal) {
-	label = author " " year " " journal
+        label = author " " year " " journal
     }
     else {
-	label = author " " year " " booktitle
+        label = author " " year " " booktitle
     }
     gsub(/ /, "_", label)
+    gsub(/^@[^\n]*,\n/, category "{" label ",\n", bibtex)
 
-    for (line in bibtexarr) {
-	if (bibtexarr[line] ~ /^@.*/) {
-	    bibtex = category "{" label ","
-	}
-	else {
-	    bibtex = bibtex "\n" bibtexarr[line]
-	}
-    }
+    # for (line in bibtexarr) {
+    #     if (bibtexarr[line] ~ /^@.*/) {
+    #         bibtex = category "{" label ","
+    #     }
+    #     else {
+    #         bibtex = bibtex "\n" bibtexarr[line]
+    #     }
+    # }
     orig = "";
     return bibtex
 }
@@ -1209,7 +1230,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
 	printf "Choose [\033\1331m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: ", Narr, curpage, page
 
 	while (1) {
-	    RS = "\n"
+        RS = "\n"
 	    cmd = "saved=$(stty -g); stty raw; dd bs=1 count=1 2>/dev/null; stty \"$saved\""
 	    cmd | getline answer
 	    close(cmd)
@@ -1220,32 +1241,30 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
 	    #######################################
 
 	    if ( answer ~ /[[:digit:]]/ || answer == "/" ) {
-		system("stty icanon echo")
-		CUP(dim[1], 1)
-		printf "Choose [\033\1331m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: %s", Narr, curpage, page, answer
-		RS = "\n"
-		cmd = "read -r ans; echo \"$ans\" 2>/dev/null"
-		cmd | getline ans
-		close(cmd)
-		RS = "\f"
-		system("stty -icanon -echo")
-		answer = answer ans; ans = ""
+            system("stty icanon echo")
+            CUP(dim[1], 1)
+            printf "Choose [\033\1331m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: %s", Narr, curpage, page, answer
+            RS = "\n"
+            cmd = "read -r ans; echo \"$ans\" 2>/dev/null"
+            cmd | getline ans
+            close(cmd)
+            RS = "\f"
+            system("stty -icanon -echo")
+            answer = answer ans; ans = ""
 
-		if (answer ~ /\/[^[:cntrl:]*]/) {
-		    slist = search(list, delim, substr(answer, 2))
-		    menu_TUI_setup(slist, delim)
-		    break
-		}
-
-		if ( (answer ~ /[[:digit:]]+G/) ) {
-		    ans = answer; gsub(/G/, "", ans);
-		    curpage = (+ans <= +page ? ans : page)
-		    break
-		}
-
-		if (+answer > +Narr) answer = Narr
-		if (+answer < 1) answer = 1
-		break
+            if (answer ~ /\/[^[:cntrl:]*]/) {
+                slist = search(list, delim, substr(answer, 2))
+                menu_TUI_setup(slist, delim)
+                break
+            }
+            if ( (answer ~ /[[:digit:]]+G/) ) {
+                ans = answer; gsub(/G/, "", ans);
+                curpage = (+ans <= +page ? ans : page)
+                break
+            }
+            if (+answer > +Narr) answer = Narr
+            if (+answer < 1) answer = 1
+            break
 	    }
 
 	    ########################
@@ -1254,12 +1273,12 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
 
 	    if ( answer == "r" ||
 	       ( answer ~ /[[:digit:]]/ && (+answer > +Narr || +answer < 1) ) ) {
-		menu_TUI_setup(list, delim)
-		curpage = (+curpage > +page ? page : curpage)
-		break
-	    }
+               menu_TUI_setup(list, delim)
+               curpage = (+curpage > +page ? page : curpage)
+               break
+       }
 	    if ( answer == "\r" || answer == "l" ) { answer = Ncursor; break }
-	    if ( answer == "q" ) exit
+        if ( answer == "q" ) exit
 	    if ( answer == "h" ) { answer = "Go Back..."; disp[answer] = "Go Back..."; break }
 	    if ( answer == "n" && +curpage < +page) { curpage++; break }
 	    if ( answer == "n" && +curpage == +page) { cursor = ( +curpage == +page ? Narr - dispnum*(curpage-1) : dispnum ); break }
@@ -1292,7 +1311,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
 	    print tmsg
 
 	    CUP(top + oldCursor*num - num, 1); # old entry
-	    for (i = 1; i < num; i++) {
+	    for (i = 1; i <= num; i++) {
 		printf "\033\1332K" # clear line
 		CUP(top + oldCursor*num - num + i, 1)
 	    }
@@ -1300,7 +1319,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
 	    printf "%s", oldNcursor ". " disp[oldNcursor]
 
 	    CUP(top + cursor*num - num, 1); # new entry
-	    for (i = 1; i < num; i++) {
+	    for (i = 1; i <= num; i++) {
 		printf "\033\1332K" # clear line
 		CUP(top + cursor*num - num + i, 1)
 	    }
