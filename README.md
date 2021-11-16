@@ -4,8 +4,7 @@ Bibliography manager written in awk
 
 Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 
-- ~~Minimal (*only require **POSIX compliant awk***)~~
-    - Runs only on `gawk`
+- Minimal (*only require **POSIX compliant awk***)
 - Search BibTeX on **crossref** and **google scholar**
 - Create and modify bib file on the fly
 - Automatically and manually *rename* and *encode metadata* to pdf file
@@ -17,8 +16,7 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 <!-- vim-markdown-toc GFM -->
 
 * [Preview](#preview)
-	* [bib.awk Preview](#bibawk-preview)
-	* [bib_tui.awk Preview](#bib_tuiawk-preview)
+    * [bib.awk Preview](#bibawk-preview)
 * [Installation guide](#installation-guide)
 * [Configuration](#configuration)
 * [Requirement](#requirement)
@@ -29,11 +27,11 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 
 ## Preview
 
-### bib.awk Preview
-[![bib.awk preview](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT.png)](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT)
+<!-- ### bib.awk Preview -->
+<!-- [![bib.awk preview](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT.png)](https://asciinema.org/a/Edb3nFO0Xeb4yDf1cT1A4FKzT) -->
 
-### bib_tui.awk Preview
-[![bib_tui.awk preview](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG.png)](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG)
+### bib.awk Preview
+[![bib.awk preview](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG.png)](https://asciinema.org/a/WwcNHq3GmnGN9VZibSxnapooG)
 
 ## Installation guide
 
@@ -41,15 +39,12 @@ Contribution to use it in repository in distro is welcome. Here is a simple guid
 
 1. `git clone https://github.com/huijunchen9260/bib.awk` to download bib.awk to directory.
 2. To install on linux:
-    - Run `sudo make install` to install both `bib.awk` and `bib_tui.awk`.
-    - Run `sudo make install-bib` to install `bib.awk`.
-    - Run `sudo make install-tui` to install `bib_tui.awk`.
-3. If you are using `bib.awk`, remember to install [shellect](https://github.com/huijunchen9260/shellect). If you just want to try out with the least dependency, use `bib_tui.awk`.
-4. Configuration is necessary. You definitely need to set `BIBFILE` and `PDFPATH` for basic function to work. For detailed explanation, see [Configuration](#configuration).
+    - Run `sudo make install` to install both `bib.awk`.
+3. Configuration is necessary. You definitely need to set `BIBFILE` and `PDFPATH` for basic function to work. For detailed explanation, see [Configuration](#configuration).
 
 ## Configuration
 
-Configuration is done within the first section of `bib.awk` / `bib_tui.awk` file.
+Configuration is done within the first section of `bib.awk` file.
 
 Configuration explanation:
   - If you want to use environment variable `VAR`: `ENVIRON["VAR"]`
@@ -69,7 +64,6 @@ Configuration explanation:
 
 ## Requirement
 
-- Menu system: [shellect](https://github.com/huijunchen9260/shellect) (not required if use `bib_tui.awk`
 - clipboard: `xclip` or `xsel` for linux (require configuration), `pbcopy` and `pbpaste` for Mac OS
 - file opener: `xdg-open` for linux, `open` for Mac OS
 - `gs` (ghostscript) for pdf metadata encoding, [[MacOS]](https://pages.uoregon.edu/koch/), [[Linux and Windows]](https://www.ghostscript.com/download/gsdnld.html)
@@ -81,19 +75,18 @@ Configuration explanation:
 
  - search on crossref by text
      - search on crossref using the following shell command:
-	```sh
-	curl -s "https://api.crossref.org/works? \
-	query.bibliographic=string+to+search \
-	&select=indexed,title,author,type,DOI, \
-	published-print,published-online,container-title"
-	```
-	read the API manual!
-     - directly pull out field needed.
+         ```sh
+         curl -s "https://api.crossref.org/works? \
+             query.bibliographic=string+to+search \
+             &select=indexed,title,author,type,DOI, \
+             published-print,published-online,container-title"
+         ```
+         read the API manual!
+        - directly pull out field needed.
+        - If search text is DOI, then directly pull out bibtex.
  - search on crossref by metadata
-     - ~~use [pdfinfo](https://linux.die.net/man/1/pdfinfo) to extract pdf metadata~~
  - search on google scholar
-     - search using following url: `
-https://scholar.google.com/scholar?q=string+to+search 2>&1 1>/dev/null &`
+     - search using following url: `https://scholar.google.com/scholar?q=string+to+search 2>&1 1>/dev/null &`
  - open research paper
      - configure `PDFPATH` variable in `bib.awk`
  - open research paper website
