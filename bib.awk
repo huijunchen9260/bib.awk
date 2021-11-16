@@ -50,6 +50,8 @@ BEGIN {
     #  Start of script  #
     #####################
 
+    init()
+
     RS = "\f"
     menu[1] = "search on crossref by text" RS \
 	      "search on crossref by metadata" RS \
@@ -76,19 +78,7 @@ BEGIN {
 
     list = menu[1]; delim = menu[2]; num = menu[3]; tmsg = menu[4]; bmsg = menu[5];
 
-    while ("shellect -c \"" list \
-	      "\" -d '" delim \
-	      "' -n " num \
-	      " -t '" tmsg \
-	      "' -b '" bmsg \
-	      "' -i -l" | \
-	      getline response) {
-	close("shellect -c \"" list \
-	      "\" -d '" delim \
-	      "' -n " num \
-	      " -t '" tmsg \
-	      "' -b '" bmsg \
-	      "' -i -l")
+    while (response = menu_TUI(list, delim, num, tmsg, bmsg)) {
 
 	#####################
 	#  Action Matching  #
@@ -99,27 +89,60 @@ BEGIN {
 	if (response == choice[1] || \
 	    response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
 	    if (response == choice[1]) {
-		string = notify("Type string to search on crossref:", string)
-		clear_screen()
-		str = string
-		gsub(/ /, "+", string)
+            string = notify("Type string to search on crossref:", string)
+            clear_screen()
+            str = string
+            gsub(/ /, "+", string)
 	    }
-	    if (response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
-		gsub(/\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)/, "", response)
-		string = response
-		str = string
-		gsub(/ /, "+", string)
+
+	    if (str ~ /10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-[:alnum:]]+/) {
+            doi = str
+            bib_get = 1
+            clear_screen()
+            cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
+            cmd | getline bibtex
+            close(cmd)
+            Nbibtex = split(bibtex, bibarr, "},")
+            bibtex = ""
+            for (i = 1; i <= Nbibtex; i++) {
+                if (i == 1) {
+                    match(bibarr[i], /,.*=/)
+                    bibtex = bibtex "\n" substr(bibarr[i], 1, RSTART) "\n\t" substr(bibarr[i], RSTART+1) "},"
+                }
+                else if (i == Nbibtex) {
+                    bibtex = bibtex "\n\t" substr(bibarr[i], 1, length(bibarr[i]) - 2) "\n}"
+                }
+                else {
+                    bibtex = bibtex "\n\t" bibarr[i] "},"
+                }
+            }
+            bibtex = substr(bibtex, 3)
+
+            ## alternate the label
+            bibtex = label_alter(bibtex)
+
+            notify("BibTeX listed below, press enter to continue...\n" bibtex)
+            yesno("Add this BibTeX to " BIBFILE "?")
+            continue
 	    }
-	    crossref_json_process(string)
-	    gscholar = "Search on Google Scholar...\n\n\n\n\n"
-	    back_last = "Go Back... \n\n\n\n\n"
-	    save()
-	    list = jsonlist "\f" gscholar "\f" back_last;
-	    delim = "\f";
-	    num = 6;
-	    tmsg = "Search result";
-	    bmsg = "Action: search \"" str "\" on crossref";
-	    continue
+        else {
+            if (response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
+                gsub(/\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)/, "", response)
+                string = response
+                str = string
+                gsub(/ /, "+", string)
+            }
+            crossref_json_process(string)
+            gscholar = "Search on Google Scholar...\n\n\n\n\n"
+            back_last = "Go Back... \n\n\n\n\n"
+            save()
+            list = jsonlist "\f" gscholar "\f" back_last;
+            delim = "\f";
+            num = 6;
+            tmsg = "Search result";
+            bmsg = "Action: search \"" str "\" on crossref";
+            continue
+        }
 	}
 
 	# search on crossref by metadata: layer 1
@@ -309,22 +332,38 @@ BEGIN {
 	# search on crossref by text: layer 2
 	# search on crossref by metadata: layer 3 if doi
 	if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/ || \
-	    response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
+	    response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
+	    # response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
 	    bib_get = 1
 	    if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
 		split(response, fieldarr, "\n")
 		gsub(/\tDOI: /, "", fieldarr[6])
 		doi = fieldarr[6]
 	    }
-	    if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
-		gsub(/^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)$/, "", response)
-		doi = response
+	    # if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
+	    if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
+            gsub(/^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)$/, "", response)
+            doi = response
 	    }
-	    cmd = "curl -s \"http://api.crossref.org/works/" \
-		doi \
-		"/transform/application/x-bibtex\""
+        clear_screen()
+        cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
 	    cmd | getline bibtex
 	    close(cmd)
+        Nbibtex = split(bibtex, bibarr, "},")
+        bibtex = ""
+        for (i = 1; i <= Nbibtex; i++) {
+            if (i == 1) {
+                match(bibarr[i], /,.*=/)
+                bibtex = bibtex "\n" substr(bibarr[i], 1, RSTART) "\n\t" substr(bibarr[i], RSTART+1) "},"
+            }
+            else if (i == Nbibtex) {
+                bibtex = bibtex "\n\t" substr(bibarr[i], 1, length(bibarr[i]) - 2) "\n}"
+            }
+            else {
+                bibtex = bibtex "\n\t" bibarr[i] "},"
+            }
+        }
+        bibtex = substr(bibtex, 3)
 
 	    ## alternate the label
 	    bibtex = label_alter(bibtex)
@@ -765,6 +804,10 @@ BEGIN {
 
 }
 
+END {
+    finale()
+}
+
 function load() {
     layer--
     response = saved[layer*6 - 5]
@@ -785,16 +828,13 @@ function save() {
     layer++
 }
 
-function clear_screen() { # clear screen and move cursor to 0, 0
-    printf "\033\1332J\033\133H"
-}
-
 function tex_template(file, title, author) {
-    getline template < TEXTEMP
-    gsub(/TITLE/, title, template)
-    gsub(/AUTHOR/, author, template)
-    gsub(/BIB/, BIBFILE, template)
-    print template > file
+    if (getline template < TEXTEMP == 0) {
+	gsub(/TITLE/, title, template)
+	gsub(/AUTHOR/, author, template)
+	gsub(/BIB/, BIBFILE, template)
+	print template > file
+    }
 }
 
 function restore() {
@@ -811,13 +851,18 @@ function restore() {
 }
 
 function notify(msg, str) {
-    system("stty -cread icanon echo 1>/dev/null 2>&1")
-    print msg
+    clear_screen()
     RS = "\n" # stop getline by enter
-    getline str < "-"
+    print msg
+    system("stty icanon echo")
+    printf "\033\133?25h" > "/dev/stderr" # show cursor
+    cmd = "read -r ans; echo \"$ans\" 2>/dev/null"
+    cmd | getline str
+    close(cmd)
+    printf "\033\133?25l" > "/dev/stderr" # hide cursor
     RS = "\f"
+    system("stty -icanon -echo")
     return str
-    system("stty sane")
 }
 
 function yesno(topmsg) {
@@ -843,9 +888,7 @@ function meta_to_file(file, label, title, author, journal, doi) {
 }
 
 function mv_rm(file, label) {
-    cmd = "mv \"/tmp/" label ".pdf\" \
-	       \"" PDFPATH label ".pdf\"; \
-	       echo $?"
+    cmd = "mv \"/tmp/" label ".pdf\" \"" PDFPATH label ".pdf\"; echo $?"
     cmd | getline exitcode
     if (exitcode == 0 && file != (PDFPATH label ".pdf") ) {
 	system("rm \"" file "\";")
@@ -873,7 +916,7 @@ function meta_extract(file) {
     }
     info = substr(info, 2)
 
-    ENVIRON["LANG"] = LANG;		# restore LANG
+    ENVIRON["LANG"] = LANG; # restore LANG
     RS = "\f"
     split("", temp, ":") # delete temp array
     metadata = info
@@ -884,76 +927,62 @@ function meta_extract(file) {
 function label_alter(bibtex) {
 
     label = "";
-    author = ""; journal = ""; orig = "";
-    year = ""; category = ""; booktitle = "";
+    author = ""; journal = ""; year = ""; category = ""; booktitle = "";
 
-    split(bibtex, bibtexarr, "\n")
+    Nbibtex = split(bibtex, bibtexarr, "\n")
     for (line in bibtexarr) {
-	if (bibtexarr[line] ~ /^@.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/{.*/, "", bibtexarr[line])
-	    category = bibtexarr[line]
-	    if (category ~ /.*@book.*/) {
-		journal = "Book"
-	    }
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*year.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*year ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    year = bibtexarr[line]
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*author.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*author ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    split(bibtexarr[line], authorarr, " and ")
-	    for (name in authorarr) {
-		gsub(/.* /, "", authorarr[name])
-		author = author "_" authorarr[name]
-	    }
-	    author = substr(author, 2)
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*journal.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*journal ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    if (bibtexarr[line] ~ /.* .*/) {
-		gsub(/[^A-Z]/, "", bibtexarr[line])
-	    }
-	    journal = bibtexarr[line]
-	    bibtexarr[line] = orig
-	    continue
-	}
-	if (bibtexarr[line] ~ /.*booktitle.*/) {
-	    orig = bibtexarr[line]
-	    gsub(/.*booktitle ?= ?{?|}?,?$/, "", bibtexarr[line])
-	    booktitle = bibtexarr[line]
-	    bibtexarr[line] = orig
-	    continue
-	}
+        if (bibtexarr[line] ~ /^@.*/) {
+            gsub(/\{.*/, "", bibtexarr[line])
+            category = bibtexarr[line]
+            if (category ~ /.*@book.*/) {
+                journal = "Book"
+            }
+            continue
+        }
+        if (bibtexarr[line] ~ /.*year.*/) {
+            gsub(/.*year ?= ?{?|}?,?$/, "", bibtexarr[line])
+            year = bibtexarr[line]
+            continue
+        }
+        if (bibtexarr[line] ~ /.*author.*/) {
+            gsub(/.*author ?= ?{?|}?,?$/, "", bibtexarr[line])
+            split(bibtexarr[line], authorarr, " and ")
+            for (name in authorarr) {
+                if (authorarr[name] ~ /.*,.*/) { # first is last name
+                    gsub(/,.*/, "", authorarr[name])
+                    author = author "_" authorarr[name]
+                }
+                else { # second is last name
+                    gsub(/.* /, "", authorarr[name])
+                    author = author "_" authorarr[name]
+                }
+            }
+            author = substr(author, 2)
+            continue
+        }
+        if (bibtexarr[line] ~ /.*journal.*/) {
+            gsub(/.*journal ?= ?{?|}?,?$/, "", bibtexarr[line])
+            if (bibtexarr[line] ~ /.* .*/) {
+                gsub(/[^A-Z]/, "", bibtexarr[line])
+            }
+            journal = bibtexarr[line]
+            continue
+        }
+        if (bibtexarr[line] ~ /.*booktitle.*/) {
+            gsub(/.*booktitle ?= ?{?|}?,?$/, "", bibtexarr[line])
+            booktitle = bibtexarr[line]
+            continue
+        }
     }
-
     if (journal) {
-	label = author " " year " " journal
+        label = author " " year " " journal
     }
     else {
-	label = author " " year " " booktitle
+        label = author " " year " " booktitle
     }
     gsub(/ /, "_", label)
+    gsub(/^@[^\n]*,\n/, category "{" label ",\n", bibtex)
 
-    for (line in bibtexarr) {
-	if (bibtexarr[line] ~ /^@.*/) {
-	    bibtex = category "{" label ","
-	}
-	else {
-	    bibtex = bibtex "\n" bibtexarr[line]
-	}
-    }
-    orig = "";
     return bibtex
 }
 
@@ -1110,4 +1139,249 @@ function crossref_json_process(string) {
     }
     jsonlist = substr(jsonlist, 2)
     return jsonlist
+}
+
+function clear_screen() { # clear screen and move cursor to 0, 0
+    printf "\033\1332J\033\133H"
+}
+
+###################
+##  Start of TUI  #
+###################
+
+
+function CUP(lines, cols) {
+    printf("\033\133%s;%sH", lines, cols)
+}
+
+function menu_TUI_page(list, delim) {
+    answer = ""
+    page = 0
+    split("", pagearr, ":") # delete saved array
+    clear_screen()
+    printf "\033\133?7l" # line unwrap
+    cmd = "stty size"
+    cmd | getline d
+    close(cmd)
+    split(d, dim, " ")
+    top = 5; bottom = dim[1] - 4;
+    fin = bottom - ( bottom - (top - 1) ) % num; end = fin + 1;
+    dispnum = (end - top) / num
+    Narr = split(list, disp, delim)
+    move = int( ( dispnum <= Narr ? dispnum * 0.5 : Narr * 0.5 ) )
+    dispnum = (dispnum <= Narr ? dispnum : Narr)
+
+    # generate display content for each page (pagearr)
+    for (entry = 1; entry <= Narr; entry++) {
+	if ((+entry) % (+dispnum) == 1) { # if first item in each page
+	    pagearr[++page] = entry ". " disp[entry]
+	}
+	else {
+	    pagearr[page] = pagearr[page] "\n" entry ". " disp[entry]
+	}
+    }
+    curpage = 1;
+}
+
+function search(list, delim, str) {
+    find = ""; str = tolower(str); regex = ".*" str ".*";
+    Narr = split(list, sdisp, delim)
+
+    for (entry = 1; entry <= Narr; entry++) {
+	match(tolower(sdisp[entry]), regex)
+	if (RSTART) find = find delim sdisp[entry]
+    }
+
+    slist = substr(find, 2)
+    return slist
+}
+
+function finale() {
+    printf "\033\1332J\033\133H" > "/dev/stderr" # clear screen
+    printf "\033\133?7h" > "/dev/stderr" # line wrap
+    printf "\033\1338" > "/dev/stderr" # restore cursor
+    printf "\033\133?25h" > "/dev/stderr" # hide cursor
+    printf "\033\133?1049l" > "/dev/stderr" # back from alternate buffer
+    system("stty icanon echo")
+    ENVIRON["LANG"] = LANG; # restore LANG
+}
+
+function init() {
+    system("stty -icanon -echo")
+    printf "\033\1332J\033\133H" > "/dev/stderr" # clear screen
+    printf "\033\133?1049h" > "/dev/stderr" # alternate buffer
+    printf "\033\1337" > "/dev/stderr" # save cursor
+    printf "\033\133?25l" > "/dev/stderr" # hide cursor
+    printf "\033\133?7l" > "/dev/stderr" # line wrap
+    LANG = ENVIRON["LANG"]; # save LANG
+    ENVIRON["LANG"] = C; # simplest locale setting
+}
+
+function key_collect(list, pagerind) {
+    key = ""; rep = 0
+    do {
+
+        cmd = "trap 'printf WINCH' WINCH; dd ibs=1 count=1 2>/dev/null"
+        cmd | getline ans;
+        close(cmd)
+
+        if (++rep == 1) {
+            srand(); time = srand()
+            if (time - old_time == 0) { sec++ }
+            else { sec = 0 }
+            old_time = time
+        }
+
+        gsub(/[\\^\[\]]/, "\\\\&", ans) # escape special char
+        if (ans ~ /.*WINCH/ && pagerind == 0) { # trap SIGWINCH
+            cursor = 1; curpage = 1;
+            menu_TUI_page(list, delim)
+            redraw(tmsg, bmsg)
+            gsub(/WINCH/, "", ans);
+        }
+        if (ans ~ /\033/ && rep == 1) { ans = ""; continue; } # first char of escape seq
+        else { key = key ans; }
+        if (key ~ /[^\x00-\x7f]/) { break } # print non-ascii char
+        if (key ~ /^\\\[5$|^\\\[6$$/) { ans = ""; continue; } # PageUp / PageDown
+    } while (ans !~ /[\x00-\x5a]|[\x5f-\x7f]/)
+    # } while (ans !~ /[\006\025\033\003\177[:space:][:alnum:]><\}\{.~\/:!?*+-]|"|[|_$()]/)
+    return key
+}
+
+function redraw(tmsg, bmsg) {
+    printf "\033\1332J\033\133H" # clear screen and move cursor to 0, 0
+    CUP(1, 1);
+    hud = "page: [n]ext, [p]rev, [r]eload, [t]op, [b]ottom, [num+G]o; entry: [h/k/j/l]-[←/↑/↓/→], [/]search, [q]uit"
+    gsub("[[]", "[\033\1331m", hud); gsub("[]]", "\033\133m]", hud)
+    printf hud
+
+    CUP(2, 1)
+    hline = sprintf("%" dim[2] "s", "")
+    gsub(/ /, "━", hline)
+    printf hline
+    CUP(top, 1); print pagearr[curpage]
+    cursor = ( cursor+dispnum*(curpage-1) > Narr ? Narr - dispnum*(curpage-1) : cursor )
+    Ncursor = cursor+dispnum*(curpage-1)
+    CUP(top + cursor*num - num, 1); printf "%s\033\1330;7m%s\033\133m", Ncursor ". ", disp[Ncursor]
+    CUP(3, 1); print tmsg
+    CUP(dim[1] - 2, 1); print bmsg
+    CUP(dim[1], 1)
+    printf "Choose [\033\1331m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: ", Narr, curpage, page
+}
+
+function menu_TUI(list, delim, num, tmsg, bmsg) {
+
+    cursor = 1
+    menu_TUI_page(list, delim)
+    while (answer !~ /^[[:digit:]]+$|Go\ Back\.\.\./) {
+        redraw(tmsg, bmsg)
+
+        while (1) {
+            answer = key_collect(list, pagerind)
+
+            #######################################
+            #  Key: entry choosing and searching  #
+            #######################################
+
+            if ( answer ~ /[[:digit:]]/ || answer == "/" ) {
+                system("stty icanon echo")
+                CUP(dim[1], 1)
+                printf "Choose [\033\1331m1-%d\033\133m], current page num is \033\133;1m%d\033\133m, total page num is \033\133;1m%d\033\133m: %s", Narr, curpage, page, answer
+                RS = "\n"
+                cmd = "read -r ans; echo \"$ans\" 2>/dev/null"
+                cmd | getline ans
+                close(cmd)
+                RS = "\f"
+                system("stty -icanon -echo")
+                answer = answer ans; ans = ""
+
+                if (answer ~ /\/[^[:cntrl:]*]/) {
+                    slist = search(list, delim, substr(answer, 2))
+                    menu_TUI_page(slist, delim)
+                    break
+                }
+                if ( (answer ~ /[[:digit:]]+G/) ) {
+                    ans = answer; gsub(/G/, "", ans);
+                    curpage = (+ans <= +page ? ans : page)
+                    break
+                }
+                if (+answer > +Narr) answer = Narr
+                if (+answer < 1) answer = 1
+                break
+            }
+
+            ########################
+            #  Key: Total Redraw   #
+            ########################
+
+            if ( answer == "r" ||
+               ( answer ~ /[[:digit:]]/ && (+answer > +Narr || +answer < 1) ) ) {
+                   menu_TUI_page(list, delim)
+                   curpage = (+curpage > +page ? page : curpage)
+                   break
+               }
+            if ( answer == "\r" || answer == "l" ) { answer = Ncursor; break }
+            if ( answer == "q" ) exit
+            if ( answer == "h" ) { answer = "Go Back..."; disp[answer] = "Go Back..."; break }
+            if ( answer == "n" && +curpage < +page) { curpage++; break }
+            if ( answer == "n" && +curpage == +page) { cursor = ( +curpage == +page ? Narr - dispnum*(curpage-1) : dispnum ); break }
+            if ( answer == "p" && +curpage > 1) { curpage--; break }
+            if ( answer == "p" && +curpage == 1) { cursor = 1; break }
+            if ( answer == "t" ) { curpage = 1; cursor = 1; break }
+            if ( answer == "b" ) { curpage = page; cursor = Narr - dispnum*(curpage-1); break }
+
+            #########################
+            #  Key: Partial Redraw  #
+            #########################
+
+            if ( answer == "j" && +cursor <= +dispnum ) { oldCursor = cursor; cursor++; }
+            if ( answer == "j" && +cursor > +dispnum  && page > 1 ) { cursor = 1; curpage++; break }
+            if ( answer == "k" && +cursor == 1  && curpage > 1 && page > 1 ) { cursor = dispnum; curpage--; break }
+            if ( answer == "k" && +cursor >= 1 ) { oldCursor = cursor; cursor--; }
+            if ( answer == "g" ) { oldCursor = cursor; cursor = 1; }
+            if ( answer == "G" ) { oldCursor = cursor; cursor = ( +curpage == +page ? Narr - dispnum*(curpage-1) : dispnum ); }
+           if ( (answer == "\006") && cursor <= +dispnum ) { oldCursor = cursor; cursor = cursor + move }
+           if ( (answer == "\006") && +cursor > +dispnum && +curpage < +page && +page > 1 ) { cursor = cursor - dispnum; curpage++; break }
+           if ( (answer == "\006") && +cursor > Narr - dispnum*(curpage-1) && +curpage == +page ) { cursor = ( +curpage == +page ? Narr - dispnum*(curpage-1) : dispnum ); break }
+           if ( (answer == "\006") && +cursor == Narr - dispnum*(curpage-1) && +curpage == +page ) break
+
+           if ( (answer == "\025") && cursor >= 1 ) { oldCursor = cursor; cursor = cursor - move }
+           if ( (answer == "\025") && +cursor < 1 && +curpage > 1 ) { cursor = dispnum + cursor; curpage--; break }
+           if ( (answer == "\025") && +cursor < 1 && +curpage == 1 ) { cursor = 1; break }
+           if ( (answer == "\025") && +cursor == 1 && +curpage == 1 ) break
+
+            ################################################
+            #  Partial redraw: tmsg, old entry, new entry  #
+            ################################################
+
+            Ncursor = cursor+dispnum*(curpage-1); oldNcursor = oldCursor+dispnum*(curpage-1);
+            if (Ncursor > Narr) { Ncursor = Narr; cursor = Narr - dispnum*(curpage-1); continue }
+            if (Ncursor < 1) { Ncursor = 1; cursor = 1; continue }
+
+            CUP(3, 1); # tmsg
+            printf "\033\1332K" # clear line
+            print tmsg
+
+            CUP(top + oldCursor*num - num, 1); # old entry
+            for (i = 1; i <= num; i++) {
+                printf "\033\1332K" # clear line
+                CUP(top + oldCursor*num - num + i, 1)
+            }
+            CUP(top + oldCursor*num - num, 1);
+            printf "%s", oldNcursor ". " disp[oldNcursor]
+
+            CUP(top + cursor*num - num, 1); # new entry
+            for (i = 1; i <= num; i++) {
+                printf "\033\1332K" # clear line
+                CUP(top + cursor*num - num + i, 1)
+            }
+
+            CUP(top + cursor*num - num, 1);
+            printf "%s\033\1330;7m%s\033\133m", Ncursor ". ", disp[Ncursor]
+
+        }
+
+    }
+
+    return disp[answer]
 }
