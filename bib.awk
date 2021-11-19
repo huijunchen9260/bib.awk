@@ -78,7 +78,9 @@ BEGIN {
 
     list = menu[1]; delim = menu[2]; num = menu[3]; tmsg = menu[4]; bmsg = menu[5];
 
-    while (response = menu_TUI(list, delim, num, tmsg, bmsg)) {
+    while (1) {
+
+    response = menu_TUI(list, delim, num, tmsg, bmsg)
 
 	#####################
 	#  Action Matching  #
@@ -211,15 +213,15 @@ BEGIN {
 	    response == choice[10] || \
 	    response == choice[15]) {
 	    if (response == choice[15]) { # create sublibrary
-		name = notify("Type the name of the sublibrary:", name)
-		gsub(/ /, "_", name)
-		clear_screen()
-		file = LIBPATH name ".bib"
-	    }
-	    ref_gen(BIBFILE)
-	    save()
-	    list = biblist "\f" "Go Back...\n\n\n\n\n";
-	    delim = "\f";
+            name = notify("Type the name of the sublibrary:", name)
+            gsub(/ /, "_", name)
+            clear_screen()
+            file = LIBPATH name ".bib"
+        }
+        ref_gen(BIBFILE)
+        save()
+        list = biblist "\f" "Go Back...\n\n\n\n\n";
+        delim = "\f";
 	    num = 6;
 	    tmsg = "Choose bib entry to " response ":";
 	    bmsg = "Action: " response;
@@ -390,29 +392,31 @@ BEGIN {
 
 	    ## open research appendices: layer 2
 	    if (action == choice[8]) { # open appendices
-		file = APXPATH label "/" response
-		cmd = "file -i \"" file "\" 2>/dev/null"
-		cmd | getline mimetype
-		close(cmd)
-		if (mimetype ~ /.*text\/.*|.*x-empty.*|.*json.*/) {
-		    system(EDITOR " " file)
-		    clear_screen()
-		}
-		else if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
-		    system(OPENER " " file)
-		    clear_screen()
-		}
-		else {
-		    cmd = "xdotool getactivewindow &"
-		    cmd | getline wid
-		    close(cmd)
-		    system("xdotool windowunmap " wid " &")
-		    system(OPENER " " file)
-		    system("xdotool windowmap " wid " &")
-		    clear_screen()
-		}
-		back = 1;
-		continue
+            file = APXPATH label "/" response
+            cmd = "file -i \"" file "\" 2>/dev/null"
+            cmd | getline mimetype
+            close(cmd)
+            if (mimetype ~ /.*text\/.*|.*x-empty.*|.*json.*/) {
+                finale()
+                system(EDITOR " " file)
+                init()
+                clear_screen()
+            }
+            else if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
+                system(OPENER " " file)
+                clear_screen()
+            }
+            else {
+                cmd = "xdotool getactivewindow &"
+                cmd | getline wid
+                close(cmd)
+                system("xdotool windowunmap " wid " &")
+                system(OPENER " " file)
+                system("xdotool windowmap " wid " &")
+                clear_screen()
+            }
+            back = 1;
+            continue
 	    }
 
 	    ## manually build database: layer 2
@@ -499,107 +503,111 @@ BEGIN {
 	    ## open research paper: layer 2
 	    ## open sublibraries: layer 3
 	    if (action == choice[4] || action == choice[14]) { # open pdf
-
-		if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
-		    system(OPENER " " file)
-		    clear_screen()
-		}
-		else {
-		    cmd = "xdotool getactivewindow &"
-		    cmd | getline wid
-		    close(cmd)
-		    system("xdotool windowunmap " wid " &")
-		    system(READER " " PDFPATH label ".pdf")
-		    system("xdotool windowmap " wid " &")
-		    clear_screen()
-		    if (action == choice[14]) {
-			load()
-		    }
-		}
-		continue
+            if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
+                system(OPENER " " file)
+                clear_screen()
+            }
+            else {
+                cmd = "xdotool getactivewindow &"
+                cmd | getline wid
+                close(cmd)
+                system("xdotool windowunmap " wid " &")
+                system(READER " " PDFPATH label ".pdf")
+                system("xdotool windowmap " wid " &")
+                clear_screen()
+                if (action == choice[14]) {
+                    load()
+                }
+            }
+            continue
 	    }
 
 	    ## open research paper website: layer 2
 	    if (action == choice[5]) {
-		if (doi == "") {
-		    notify("Cannot find DOI; press enter to continue")
-		    back = 1;
-		}
-		else {
-		    url = "https://doi.org/" doi
-		    system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
-		    clear_screen()
-		    back = 1
-		}
+            if (doi == "") {
+                notify("Cannot find DOI; press enter to continue")
+                # back = 1;
+            }
+            else {
+                url = "https://doi.org/" doi
+                system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
+                clear_screen()
+                # back = 1
+            }
+            continue
 	    }
 
 	    ## copy BibTeX label: layer 2
 	    if (action == choice[6]) {
-		system("printf '%s' \"" label "\" | " CLIPINW)
-		notify(label " has copied to clipboard using " \
-		       CLIPINW "; press enter to continue...")
-		back = 1
+            system("printf '%s' \"" label "\" | " CLIPINW)
+            notify(label " has copied to clipboard using " \
+                   CLIPINW "; press enter to continue...")
+            # back = 1
+            continue
 	    }
 
 	    ## write note: layer 2
 	    if (action == choice[7]) {
-		system("mkdir -p " NTEPATH label)
-		tex_template(NTEPATH label "/" label ".tex", title, author)
-		system(EDITOR " " NTEPATH label "/" label ".tex")
-		clear_screen()
+            system("mkdir -p " NTEPATH label)
+            tex_template(NTEPATH label "/" label ".tex", title, author)
+            finale()
+            system(EDITOR " " NTEPATH label "/" label ".tex")
+            init()
+            clear_screen()
 	    }
 
 	    ## open research appendices: layer 2
 	    if (action == choice[8]) {
-		cmd = "printf '%s\n' " APXPATH label "/*"
-		cmd | getline pdf
-		close(cmd)
-		gsub(APXPATH label "/", "", pdf)
-		if (pdf ~ /\*/) {
-		    notify("No appendix found, press enter to continue")
-		    clear_screen()
-		    continue
-		}
-		save()
+            cmd = "printf '%s\n' " APXPATH label "/*"
+            cmd | getline pdf
+            close(cmd)
+            gsub(APXPATH label "/", "", pdf)
+            if (pdf ~ /\*/) {
+                notify("No appendix found, press enter to continue")
+                clear_screen()
+                continue
+            }
+            save()
 
-		list = pdf "\n" "Go Back...";
-		delim = "\n";
-		num = 1;
-		tmsg = "Choose appendices file to open"
-		bmsg = "Action: " action
-		continue
+            list = pdf "Go Back...";
+            delim = "\n";
+            num = 1;
+            tmsg = "Choose appendices file to open"
+            bmsg = "Action: " action
+            continue
 	    }
 
 	    ## edit existing BibTeX entry: layer 2
 	    if (action == choice[9]) {
-		getline BIB < BIBFILE
-		close(BIBFILE)
-		split(BIB, bibarr, "@")
-		delete bibarr[1]
-		regex = label ".*"
-		srand()
-		tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
-		bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
-		for (entry in bibarr) {
-		    if (bibarr[entry] ~ regex) {
-			printf("@%s", bibarr[entry]) > tmpfile
-			system(EDITOR " " tmpfile)
-			clear_screen()
-			getline ENTRY < tmpfile
-			close(tmpfile)
-			printf("%s", ENTRY) >> bibtmpfile
-		    }
-		    else {
-			printf("@%s", bibarr[entry]) >> bibtmpfile
-		    }
-		}
-		system("cp " bibtmpfile " " BIBFILE \
-		       "; rm " tmpfile " " bibtmpfile)
-		clear_screen()
-
-		ref_gen(BIBFILE)
-		list = biblist "\f" "Go Back...\n\n\n\n\n";
-	    }
+            getline BIB < BIBFILE
+            close(BIBFILE)
+            split(BIB, bibarr, "@")
+            delete bibarr[1]
+            regex = label ".*"
+            srand()
+            tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
+            bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
+            for (entry in bibarr) {
+                if (bibarr[entry] ~ regex) {
+                    printf("@%s", bibarr[entry]) > tmpfile
+                    finale()
+                    system(EDITOR " " tmpfile)
+                    init()
+                    clear_screen()
+                    getline ENTRY < tmpfile
+                    close(tmpfile)
+                    printf("%s", ENTRY) >> bibtmpfile
+                }
+                else {
+                    printf("@%s", bibarr[entry]) >> bibtmpfile
+                }
+            }
+            system("cp " bibtmpfile " " BIBFILE \
+                   "; rm " tmpfile " " bibtmpfile)
+            clear_screen()
+            ref_gen(BIBFILE)
+            list = biblist "\f" "Go Back...\n\n\n\n\n";
+        }
 
 	    ## manually create file hierarchy: layer 2
 	    if (action == choice[10]) {
@@ -797,10 +805,10 @@ BEGIN {
 	}
 
 	if (back == 1 || response == backtext || response == "Main Menu") {
-	    restore()
-	    back = 0
-	}
+        restore()
+        back = 0
     }
+}
 
 }
 
@@ -830,10 +838,10 @@ function save() {
 
 function tex_template(file, title, author) {
     if (getline template < TEXTEMP == 0) {
-	gsub(/TITLE/, title, template)
-	gsub(/AUTHOR/, author, template)
-	gsub(/BIB/, BIBFILE, template)
-	print template > file
+        gsub(/TITLE/, title, template)
+        gsub(/AUTHOR/, author, template)
+        gsub(/BIB/, BIBFILE, template)
+        print template > file
     }
 }
 
@@ -847,7 +855,7 @@ function restore() {
     string = ""; str = "";
     action = ""; movement = "default";
     ADD = ""; DEL = ""; RMV = "";
-    bib_get = 0; download = 0; database = 0;
+    bib_get = 0; download = 0; database = 0; sind = 0
 }
 
 function notify(msg, str) {
@@ -1155,11 +1163,7 @@ function CUP(lines, cols) {
 }
 
 function menu_TUI_page(list, delim) {
-    answer = ""
-    page = 0
-    split("", pagearr, ":") # delete saved array
-    clear_screen()
-    printf "\033\133?7l" # line unwrap
+    answer = ""; page = 0; split("", pagearr, ":") # delete saved array
     cmd = "stty size"
     cmd | getline d
     close(cmd)
@@ -1173,12 +1177,12 @@ function menu_TUI_page(list, delim) {
 
     # generate display content for each page (pagearr)
     for (entry = 1; entry <= Narr; entry++) {
-	if ((+entry) % (+dispnum) == 1) { # if first item in each page
-	    pagearr[++page] = entry ". " disp[entry]
-	}
-	else {
-	    pagearr[page] = pagearr[page] "\n" entry ". " disp[entry]
-	}
+        if ((+entry) % (+dispnum) == 1) { # if first item in each page
+            pagearr[++page] = entry ". " disp[entry]
+        }
+        else {
+            pagearr[page] = pagearr[page] "\n" entry ". " disp[entry]
+        }
     }
     curpage = 1;
 }
@@ -1197,22 +1201,23 @@ function search(list, delim, str) {
 }
 
 function finale() {
-    printf "\033\1332J\033\133H" > "/dev/stderr" # clear screen
-    printf "\033\133?7h" > "/dev/stderr" # line wrap
-    printf "\033\1338" > "/dev/stderr" # restore cursor
-    printf "\033\133?25h" > "/dev/stderr" # hide cursor
-    printf "\033\133?1049l" > "/dev/stderr" # back from alternate buffer
-    system("stty icanon echo")
+    printf "\033\1332J\033\133H" >> "/dev/stderr" # clear screen
+    printf "\033\133?7h" >> "/dev/stderr" # line wrap
+    printf "\033\1338" >> "/dev/stderr" # restore cursor
+    printf "\033\133?25h" >> "/dev/stderr" # show cursor
+    printf "\033\133?1049l" >> "/dev/stderr" # back from alternate buffer
+    system("stty isig icanon echo")
     ENVIRON["LANG"] = LANG; # restore LANG
 }
 
 function init() {
-    system("stty -icanon -echo")
-    printf "\033\1332J\033\133H" > "/dev/stderr" # clear screen
-    printf "\033\133?1049h" > "/dev/stderr" # alternate buffer
-    printf "\033\1337" > "/dev/stderr" # save cursor
-    printf "\033\133?25l" > "/dev/stderr" # hide cursor
-    printf "\033\133?7l" > "/dev/stderr" # line wrap
+    system("stty -isig -icanon -echo")
+    printf "\033\1332J\033\133H" >> "/dev/stderr" # clear screen
+    printf "\033\133?1049h" >> "/dev/stderr" # alternate buffer
+    printf "\033\1337" >> "/dev/stderr" # save cursor
+    printf "\033\133?25l" >> "/dev/stderr" # hide cursor
+    printf "\033\1335 q" >> "/dev/stderr" # blinking bar
+    printf "\033\133?7l" >> "/dev/stderr" # line unwrap
     LANG = ENVIRON["LANG"]; # save LANG
     ENVIRON["LANG"] = C; # simplest locale setting
 }
@@ -1224,13 +1229,6 @@ function key_collect(list, pagerind) {
         cmd = "trap 'printf WINCH' WINCH; dd ibs=1 count=1 2>/dev/null"
         cmd | getline ans;
         close(cmd)
-
-        if (++rep == 1) {
-            srand(); time = srand()
-            if (time - old_time == 0) { sec++ }
-            else { sec = 0 }
-            old_time = time
-        }
 
         gsub(/[\\^\[\]]/, "\\\\&", ans) # escape special char
         if (ans ~ /.*WINCH/ && pagerind == 0) { # trap SIGWINCH
@@ -1272,11 +1270,19 @@ function redraw(tmsg, bmsg) {
 function menu_TUI(list, delim, num, tmsg, bmsg) {
 
     cursor = 1
-    menu_TUI_page(list, delim)
+    if (sind == 1) {
+        menu_TUI_page(slist, delim)
+    }
+    else {
+        menu_TUI_page(list, delim)
+    }
+
     while (answer !~ /^[[:digit:]]+$|Go\ Back\.\.\./) {
+
         redraw(tmsg, bmsg)
 
         while (1) {
+
             answer = key_collect(list, pagerind)
 
             #######################################
@@ -1297,7 +1303,10 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
 
                 if (answer ~ /\/[^[:cntrl:]*]/) {
                     slist = search(list, delim, substr(answer, 2))
-                    menu_TUI_page(slist, delim)
+                    if (slist != "") {
+                        menu_TUI_page(slist, delim)
+                        cursor = 1; curpage = 1; sind = 1
+                    }
                     break
                 }
                 if ( (answer ~ /[[:digit:]]+G/) ) {
@@ -1315,9 +1324,11 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
             ########################
 
             if ( answer == "r" ||
+               ( answer == "h" && sind == 1 ) ||
                ( answer ~ /[[:digit:]]/ && (+answer > +Narr || +answer < 1) ) ) {
                    menu_TUI_page(list, delim)
                    curpage = (+curpage > +page ? page : curpage)
+                   sind = 0;
                    break
                }
             if ( answer == "\r" || answer == "l" ) { answer = Ncursor; break }
