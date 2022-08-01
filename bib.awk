@@ -88,9 +88,9 @@ BEGIN {
 
 	# search on crossref by text: layer 1
 	# search on crossref by metadata: layer 3 if not doi
-	if (response == choice[1] || \
+	if (response == "search on crossref by text" || \
 	    response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
-	    if (response == choice[1]) {
+	    if (response == "search on crossref by text") {
             string = notify("Type string to search on crossref:", string)
             clear_screen()
             str = string
@@ -102,6 +102,7 @@ BEGIN {
             bib_get = 1
             clear_screen()
             cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
+            # cmd = "curl --trace-time \"http://api.crossref.org/works/" doi "/transform/application/x-bibtex\""
             cmd | getline bibtex
             close(cmd)
             Nbibtex = split(bibtex, bibarr, "},")
@@ -114,7 +115,7 @@ BEGIN {
                 else if (i == Nbibtex) {
                     bibtex = bibtex "\n\t" substr(bibarr[i], 1, length(bibarr[i]) - 2) "\n}"
                 }
-                else {
+               else {
                     bibtex = bibtex "\n\t" bibarr[i] "},"
                 }
             }
@@ -134,6 +135,7 @@ BEGIN {
                 str = string
                 gsub(/ /, "+", string)
             }
+            print "Wait for crossref API to response, may need 30s to 1 min depends on API connection."
             crossref_json_process(string)
             gscholar = "Search on Google Scholar...\n\n\n\n\n"
             back_last = "Go Back... \n\n\n\n\n"
@@ -149,7 +151,7 @@ BEGIN {
 
 	# search on crossref by metadata: layer 1
 	# manually build database: layer 1
-	if (response == choice[2] || response == choice[12]) {
+	if (response == "search on crossref by metadata" || response == "manually build database") {
 	    cmd = "printf '%s\n' " PDFPATH "*.pdf"
 	    cmd | getline pdf
 	    close(cmd)
@@ -158,10 +160,10 @@ BEGIN {
 	    list = pdf "\n" "Go Back...";
 	    delim = "\n";
 	    num = 1;
-	    tmsg = ( response == choice[2] ? \
+	    tmsg = ( response == "search on crossref by metadata" ? \
 		 "Choose pdf for metadata" : \
 		 "Choose pdf to build database" )
-	    bmsg = ( response == choice[2] ? \
+	    bmsg = ( response == "search on crossref by metadata" ? \
 		 "Action: search pdf metadata on crossref" : \
 		 "Action: manually build database" )
 	    action = response
@@ -170,11 +172,11 @@ BEGIN {
 
 	# search on google scholar: layer 1
 	# search on crossref by text: layer 3 if gscholar
-	if (response == choice[3] || response == gscholar) {
-	    if (response == choice[3]) {
-		string = notify("Type string to search on google scholar:", string)
-		clear_screen()
-		gsub(/ /, "+", string)
+	if (response == "search on google scholar" || response == gscholar) {
+	    if (response == "search on google scholar") {
+            string = notify("Type string to search on google scholar:", string)
+            clear_screen()
+            gsub(/ /, "+", string)
 	    }
 	    system(BROWSER " " BIBUKEY \
 		      "https://scholar.google.com/scholar?q=" \
@@ -182,18 +184,17 @@ BEGIN {
 	    clear_screen()
 	    wait_clip()
 	    if (bibtex ~ /^@[[:alpha:]]*{.*$/) {
-		## alternate the label
-		bibtex = label_alter(bibtex)
-
-		notify("BibTeX listed below, press enter to continue...\n" bibtex)
-		yesno("Add this BibTeX to" BIBFILE "?")
-		bib_get = 1;
-		continue
+            ## alternate the label
+            bibtex = label_alter(bibtex)
+            notify("BibTeX listed below, press enter to continue...\n" bibtex)
+            yesno("Add this BibTeX to" BIBFILE "?")
+            bib_get = 1;
+            continue
 	    }
 	    else {
-		notify("Not copying bibtex; press enter to go to main menu")
-		back = 1
-	    }
+            notify("Not copying bibtex; press enter to go to main menu")
+            back = 1
+        }
 	}
 
 	# open research paper: layer 1
@@ -204,15 +205,15 @@ BEGIN {
 	# edit existing BibTeX entry: layer 1
 	# manually create file hierarchy: layer 1
 	# create sublibraries: layer 1
-	if (response == choice[4] || \
-	    response == choice[5] || \
-	    response == choice[6] || \
-	    response == choice[7] || \
-	    response == choice[8] || \
-	    response == choice[9] || \
-	    response == choice[10] || \
-	    response == choice[15]) {
-	    if (response == choice[15]) { # create sublibrary
+	if (response == "open research paper" || \
+	    response == "open research paper website" || \
+	    response == "copy BibTeX label" || \
+	    response == "write note" || \
+	    response == "open research appendices" || \
+	    response == "edit existing BibTeX entry" || \
+	    response == "manually create file hierarchy" || \
+	    response == "create sublibraries") {
+	    if (response == "create sublibraries") { # create sublibrary
             name = notify("Type the name of the sublibrary:", name)
             gsub(/ /, "_", name)
             clear_screen()
@@ -230,7 +231,7 @@ BEGIN {
 	}
 
 	# automatically create file hierarchy: layer 1
-	if (response == choice[11]) {
+	if (response == "automatically create file hierarchy") {
 	    ref_gen(BIBFILE)
 	    split(labellist, labellistarr, "\n")
 	    for (line in labellistarr) {
@@ -242,7 +243,7 @@ BEGIN {
 	}
 
 	# automatically build database: layer 1
-	if (response == choice[13]) {
+	if (response == "automatically update database") {
 	    faillist = ""
 	    ref_gen(BIBFILE)
 	    cmd = "printf '%s\n' " PDFPATH "*.pdf"
@@ -312,7 +313,7 @@ BEGIN {
 
 	# open sublibraries: layer 1
 	# edit sublibraries: layer 1
-	if (response == choice[14] || response == choice[16]) {
+	if (response == "open sublibraries" || response == "edit sublibraries") {
 	    cmd = "printf '%s\n' " LIBPATH "*.bib"
 	    cmd | getline library
 	    close(cmd)
@@ -321,10 +322,10 @@ BEGIN {
 	    list = library "\n" "Go Back..."
 	    delim = "\n";
 	    num = 1;
-	    tmsg = ( response == choice[14] ? \
+	    tmsg = ( response == "open sublibraries" ? \
 		     "Choose sublibrary to open" : \
 		     "Choose sublibrary to edit" )
-	    bmsg = ( response == choice[14] ? \
+	    bmsg = ( response == "open sublibraries" ? \
 		     "Action: open sublibraries" : \
 		     "Action: edit sublibraries" )
 	    action = response
@@ -379,7 +380,7 @@ BEGIN {
 	if (response ~ /^.*\.[[:alpha:]][[:alpha:]][[:alpha:]]$/) {
 
 	    ## search on crossref by metadata: layer 2
-	    if (action == choice[2]) { # search on crossref by pdf metadata
+	    if (action == "search on crossref by metadata") { # search on crossref by pdf metadata
 		meta_extract(PDFPATH response)
 		save()
 		list = metadata "\n" "Go Back...";
@@ -391,7 +392,7 @@ BEGIN {
 	    }
 
 	    ## open research appendices: layer 2
-	    if (action == choice[8]) { # open appendices
+	    if (action == "open research appendices") { # open appendices
             file = APXPATH label "/" response
             cmd = "file -i \"" file "\" 2>/dev/null"
             cmd | getline mimetype
@@ -421,7 +422,7 @@ BEGIN {
 
 	    ## manually build database: layer 2
 	    ## automatically update database: layer 2
-	    if (action == choice[12] || action == choice[13]) {
+	    if (action == "manually build database" || action == "automatically update database") {
 		ref_gen(BIBFILE)
 		save()
 		list = biblist "\f" "Go Back...\n\n\n\n\n";
@@ -433,7 +434,7 @@ BEGIN {
 	    }
 
 	    ## open sublibraries: layer 2
-	    if (action == choice[14]) { # open sublibrary
+	    if (action == "open sublibraries") { # open sublibrary
 		file = LIBPATH response
 		ref_gen(file)
 		save()
@@ -445,7 +446,7 @@ BEGIN {
 	    }
 
 	    ## edit sublibraries: layer 2
-	    if (action == choice[16]) { # edit sublibrary
+	    if (action == "edit sublibraries") { # edit sublibrary
 		file = LIBPATH response
 		save()
 		ADD = "Add BibTeX entry"
@@ -502,7 +503,7 @@ BEGIN {
 
 	    ## open research paper: layer 2
 	    ## open sublibraries: layer 3
-	    if (action == choice[4] || action == choice[14]) { # open pdf
+	    if (action == "open research paper" || action == "open sublibraries") { # open pdf
             if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
                 system(OPENER " " file)
                 clear_screen()
@@ -515,7 +516,7 @@ BEGIN {
                 system(READER " " PDFPATH label ".pdf")
                 system("xdotool windowmap " wid " &")
                 clear_screen()
-                if (action == choice[14]) {
+                if (action == "open sublibraries") {
                     load()
                 }
             }
@@ -523,7 +524,7 @@ BEGIN {
 	    }
 
 	    ## open research paper website: layer 2
-	    if (action == choice[5]) {
+	    if (action == "open research paper website") {
             if (doi == "") {
                 notify("Cannot find DOI; press enter to continue")
                 # back = 1;
@@ -538,7 +539,7 @@ BEGIN {
 	    }
 
 	    ## copy BibTeX label: layer 2
-	    if (action == choice[6]) {
+	    if (action == "copy BibTeX label") {
             system("printf '%s' \"" label "\" | " CLIPINW)
             notify(label " has copied to clipboard using " \
                    CLIPINW "; press enter to continue...")
@@ -547,7 +548,7 @@ BEGIN {
 	    }
 
 	    ## write note: layer 2
-	    if (action == choice[7]) {
+	    if (action == "write note") {
             system("mkdir -p " NTEPATH label)
             tex_template(NTEPATH label "/" label ".tex", title, author)
             finale()
@@ -557,7 +558,7 @@ BEGIN {
 	    }
 
 	    ## open research appendices: layer 2
-	    if (action == choice[8]) {
+	    if (action == "open research appendices") {
             cmd = "printf '%s\n' " APXPATH label "/*"
             cmd | getline pdf
             close(cmd)
@@ -569,6 +570,7 @@ BEGIN {
             }
             save()
 
+            sind = 0;
             list = pdf "Go Back...";
             delim = "\n";
             num = 1;
@@ -578,7 +580,7 @@ BEGIN {
 	    }
 
 	    ## edit existing BibTeX entry: layer 2
-	    if (action == choice[9]) {
+	    if (action == "edit existing BibTeX entry") {
             getline BIB < BIBFILE
             close(BIBFILE)
             split(BIB, bibarr, "@")
@@ -610,7 +612,7 @@ BEGIN {
         }
 
 	    ## manually create file hierarchy: layer 2
-	    if (action == choice[10]) {
+	    if (action == "manually create file hierarchy") {
 		system("mkdir -p " NTEPATH label "; " \
 		       "mkdir -p " APXPATH label "; " )
 
@@ -624,16 +626,16 @@ BEGIN {
 
 	    ## manually build database: layer 3
 	    ## automatically update database: layer 3
-	    if (action == choice[12] || action == choice[13]) {
+	    if (action == "manually build database" || action == "automatically update database") {
 		meta_to_file(file, label, title, author, journal, doi)
 		yesno("Update " file " to " label)
-		database = ( action == choice[12] ? 1 : 2 )
+		database = ( action == "manually build database" ? 1 : 2 )
 		continue
 	    }
 
 	    ## create sublibraries: layer 2
 	    ## edit sublibraries: layer 4 if ADD
-	    if (action == choice[15] || movement == ADD) {
+	    if (action == "create sublibraries" || movement == ADD) {
 		getline FILE < file
 		close(file)
 		getline BIB < BIBFILE
@@ -1051,8 +1053,8 @@ function ref_gen(BIBFILE) {
 		meta_journal = entryarr[line]
 		journal = sprintf("\tJournal: %s", entryarr[line])
 	    }
-	    if (entryarr[line] ~ /^[[:blank:]]*doi[[:blank:]]?=[[:blank:]]?{.*/) {
-		gsub(/^[[:blank:]]*doi[[:blank:]]?=[[:blank:]]?{|}.*/, "", entryarr[line])
+	    if (entryarr[line] ~ /^[[:blank:]]*[dD][oO][iI][[:blank:]]?=[[:blank:]]?{.*/) {
+		gsub(/^[[:blank:]]*[dD][oO][iI][[:blank:]]?=[[:blank:]]?{|}.*/, "", entryarr[line])
 		meta_doi = entryarr[line]
 		doi = sprintf("\tDOI: %s", entryarr[line])
 	    }
@@ -1092,7 +1094,7 @@ function crossref_json_process(string) {
     title = ""; category = ""; date = "";
     journal = ""; author = ""; doi = "";
 
-    cmd = "curl -s \"https://api.crossref.org/works?query.bibliographic=" \
+    cmd = "curl --trace-time \"https://api.crossref.org/works?query.bibliographic=" \
 	   string \
 	   "&select=indexed,title,author,type,DOI,published-print,published-online,container-title\""
     cmd | getline json
@@ -1100,50 +1102,49 @@ function crossref_json_process(string) {
     split(json, jsonarr, "\"indexed\"")
     delete jsonarr[1]
     for (entry in jsonarr) {
-	split(jsonarr[entry], entryarr, "[][\"}{]")
-	for (line in entryarr) {
-	    if (entryarr[line - 3] == "title") {
-	        title = sprintf("Title: %s", entryarr[line])
-	    }
-	    if (entryarr[line - 3] == "container-title") {
-	        journal = sprintf("\tJournal: %s", entryarr[line])
-	    }
-	    if (entryarr[line - 2] == "type") {
-	        category = sprintf("\tCategory: %s", entryarr[line])
-	    }
-	    if (entryarr[line - 2] == "DOI") {
-		gsub(/\\/, "", entryarr[line])
-	        doi = sprintf("\tDOI: %s", entryarr[line])
-	    }
-	    if (entryarr[line - 6] == "published-print") {
-		gsub(/,/, "/", entryarr[line])
-	        date = sprintf("\tDate: %s", entryarr[line])
-	    }
-	    else if (entryarr[line - 6] == "published-online") {
-		gsub(/,/, "/", entryarr[line])
-	        date = sprintf("\tDate: %s", entryarr[line])
-	    }
+        split(jsonarr[entry], entryarr, "[][\"}{]")
+        for (line in entryarr) {
+            if (entryarr[line - 3] == "title") {
+                title = sprintf("Title: %s", entryarr[line])
+            }
+            if (entryarr[line - 3] == "container-title") {
+                journal = sprintf("\tJournal: %s", entryarr[line])
+            }
+            if (entryarr[line - 2] == "type") {
+                category = sprintf("\tCategory: %s", entryarr[line])
+            }
+            if (entryarr[line - 2] == "DOI") {
+                gsub(/\\/, "", entryarr[line])
+                doi = sprintf("\tDOI: %s", entryarr[line])
+            }
+            if (entryarr[line - 6] == "published-print") {
+                gsub(/,/, "/", entryarr[line])
+                date = sprintf("\tDate: %s", entryarr[line])
+            }
+            else if (entryarr[line - 6] == "published-online") {
+                gsub(/,/, "/", entryarr[line])
+                date = sprintf("\tDate: %s", entryarr[line])
+            }
+            if (entryarr[line - 2] == "given") {
+                given = entryarr[line]
+            }
+            if (entryarr[line - 2] == "family") {
+                family = entryarr[line]
+                if (author == "") {
+                    author = sprintf("\tAuthor(s): %s %s", given, family)
+                }
+                else {
+                    author = author " and " given " " family
+                }
+            }
+        }
+        jsonarr[entry] = title "\n" category "\n" date "\n" \
+               journal "\n" author "\n" doi
 
-	    if (entryarr[line - 2] == "given") {
-	        given = entryarr[line]
-	    }
-	    if (entryarr[line - 2] == "family") {
-	        family = entryarr[line]
-	        if (author == "") {
-	            author = sprintf("\tAuthor(s): %s %s", given, family)
-	        }
-		else {
-	    	author = author " and " given " " family
-	        }
-	    }
-	}
-	jsonarr[entry] = title "\n" category "\n" date "\n" \
-	       journal "\n" author "\n" doi
-
-	given = ""; family = ""
-	title = ""; category = ""; date = "";
-	journal = ""; author = ""; doi = "";
-	jsonlist = jsonlist "\f" jsonarr[entry]
+        given = ""; family = ""
+        title = ""; category = ""; date = "";
+        journal = ""; author = ""; doi = "";
+        jsonlist = jsonlist "\f" jsonarr[entry]
     }
     jsonlist = substr(jsonlist, 2)
     return jsonlist
