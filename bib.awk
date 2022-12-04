@@ -99,7 +99,7 @@ BEGIN {
 
                 if (str ~ /10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-[:alnum:]]+/) {
                     doi = str
-                    bib_get = 1
+                    isBibGet = 1
                     clear_screen()
                     cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
                     # cmd = "curl --trace-time \"http://api.crossref.org/works/" doi "/transform/application/x-bibtex\""
@@ -120,13 +120,13 @@ BEGIN {
                         }
                     }
 
-                bibtex = substr(bibtex, 3)
-                ## alternate the label
-                bibtex = label_alter(bibtex)
+                    bibtex = substr(bibtex, 3)
+                    ## alternate the label
+                    bibtex = label_alter(bibtex)
 
-                notify("BibTeX listed below, press enter to continue...\n" bibtex)
-                yesno("Add this BibTeX to " BIBFILE "?")
-                continue
+                    notify("BibTeX listed below, press enter to continue...\n" bibtex)
+                    yesno("Add this BibTeX to " BIBFILE "?")
+                    continue
                 }
                 else {
                     if (response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
@@ -188,12 +188,12 @@ BEGIN {
                 bibtex = label_alter(bibtex)
                 notify("BibTeX listed below, press enter to continue...\n" bibtex)
                 yesno("Add this BibTeX to" BIBFILE "?")
-                bib_get = 1;
+                isBibGet = 1;
                 continue
             }
             else {
                 notify("Not copying bibtex; press enter to go to main menu")
-                back = 1
+                isBack = 1
             }
         }
 
@@ -302,10 +302,10 @@ BEGIN {
             bmsg = "Action: " response;
             action = response
             if (faillist == "") {
-                back = 1
+                isBack = 1
             }
             else {
-                back = 0
+                isBack = 0
                 continue
             }
         }
@@ -336,7 +336,7 @@ BEGIN {
         if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/ || \
             response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
             # response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
-            bib_get = 1
+            isBibGet = 1
             if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
             split(response, fieldarr, "\n")
             gsub(/\tDOI: /, "", fieldarr[6])
@@ -416,7 +416,7 @@ BEGIN {
                     system("xdotool windowmap " wid " &")
                     clear_screen()
                 }
-                back = 1;
+                isBack = 1;
                 continue
             }
 
@@ -525,13 +525,13 @@ BEGIN {
             if (action == "open research paper website") {
                 if (doi == "") {
                     notify("Cannot find DOI; press enter to continue")
-                    # back = 1;
+                    # isBack = 1;
                 }
                 else {
                     url = "https://doi.org/" doi
                     system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
                     clear_screen()
-                    # back = 1
+                    # isBack = 1
                 }
                 continue
             }
@@ -541,7 +541,7 @@ BEGIN {
                 system("printf '%s' \"" label "\" | " CLIPINW)
                 notify(label " has copied to clipboard using " \
                        CLIPINW "; press enter to continue...")
-                # back = 1
+                # isBack = 1
                 continue
             }
 
@@ -568,7 +568,7 @@ BEGIN {
                 }
                 save()
 
-                sind = 0;
+                isSearch = 0;
                 list = pdf "Go Back...";
                 delim = "\n";
                 num = 1;
@@ -580,41 +580,9 @@ BEGIN {
             ## edit existing BibTeX entry: layer 2
             if (action == "edit existing BibTeX entry") {
                 yesno("Edit bibtex with bib.awk generated label?")
-                edit_bib = 1
+                isEditBIB = 1
                 continue
             }
-
-            ## edit existing BibTeX entry: layer 3
-            # if (action == "edit existing BibTeX entry") {
-            #     getline BIB < BIBFILE
-            #     close(BIBFILE)
-            #     split(BIB, bibarr, "@")
-            #     delete bibarr[1]
-            #     regex = label ".*"
-            #     srand()
-            #     tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
-            #     bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
-            #     for (entry in bibarr) {
-            #         if (bibarr[entry] ~ regex) {
-            #             printf("@%s", bibarr[entry]) > tmpfile
-            #             finale()
-            #             system(EDITOR " " tmpfile)
-            #             init()
-            #             clear_screen()
-            #             getline ENTRY < tmpfile
-            #             close(tmpfile)
-            #             printf("%s", ENTRY) >> bibtmpfile
-            #         }
-            #         else {
-            #             printf("@%s", bibarr[entry]) >> bibtmpfile
-            #         }
-            #     }
-            #     system("cp " bibtmpfile " " BIBFILE \
-            #            "; rm " tmpfile " " bibtmpfile)
-            #     clear_screen()
-            #     ref_gen(BIBFILE)
-            #     list = biblist "\f" "Go Back...\n\n\n\n\n";
-            # }
 
             ## manually create file hierarchy: layer 2
             if (action == "manually create file hierarchy") {
@@ -626,7 +594,7 @@ BEGIN {
                    APXPATH label "\n" \
                    "for notes, sublibraries and appendices respectively.\n" \
                    "press enter to continue")
-            back = 1;
+            isBack = 1;
             }
 
             ## manually build database: layer 3
@@ -707,8 +675,8 @@ BEGIN {
 
 	if (response == "Yes") {
 
-	    ## search on crossref: bib_get
-	    if (bib_get == 1) {
+	    ## search on crossref: isBibGet
+	    if (isBibGet == 1) {
             getline BIB < BIBFILE
             close(BIBFILE)
             regex = ".*" label ".*"
@@ -721,12 +689,12 @@ BEGIN {
                 print "\n" bibtex "\n" >> BIBFILE
             }
             yesno("Download corresponding pdf file?")
-            download = 1; bib_get = 0;
+            isDownload = 1; isBibGet = 0;
             continue
         }
 
 	    ## search on crossref: download
-	    if (download == 1) {
+	    if (isDownload == 1) {
             split(bibtex, bibtexarr, "\n")
             for (line in bibtexarr) {
                 if (bibtexarr[line] ~ /^[[:blank:]]*url[[:blank:]]?=[[:blank:]]?{.*/) {
@@ -743,14 +711,14 @@ BEGIN {
                    APXPATH label "\n" \
                    "for notes, sublibraries and appendices respectively.\n" \
                    "press enter to continue")
-            back = 1; download = 0
+            isBack = 1; isDownload = 0
         }
 
 	    ## update database
 	    if (database == 1) {
             mv_rm(file, label)
             notify(label " updated; press enter to continue")
-            back = 1; database = 0
+            isBack = 1; database = 0
         }
 	    if (database == 2) {
             mv_rm(file, label)
@@ -778,10 +746,10 @@ BEGIN {
             bmsg = "Action: " action;
 
             if (faillist == "") {
-                back = 1
+                isBack = 1
             }
             else {
-                back = 0
+                isBack = 0
                 continue
             }
         }
@@ -790,11 +758,11 @@ BEGIN {
 	    if (movement == RMV) {
             system("rm " file)
             notify(file " has been removed")
-            back = 1
+            isBack = 1
         }
 
         ## edit existing BibTeX entry: Yes with layer 3
-        if (edit_bib == 1) {
+        if (isEditBIB == 1) {
             getline BIB < BIBFILE
             close(BIBFILE)
             split(BIB, bibarr, "@")
@@ -823,12 +791,13 @@ BEGIN {
             system("cp " bibtmpfile " " BIBFILE \
                    "; rm " tmpfile " " bibtmpfile)
             clear_screen()
-            back = 1
+            isEditBIB = 0
+            isBack = 1
         }
     }
 
     ## edit existing BibTeX entry: No with layer 3
-    if (response == "No" && edit_bib == 1) {
+    if (response == "No" && isEditBIB == 1) {
         getline BIB < BIBFILE
         close(BIBFILE)
         split(BIB, bibarr, "@")
@@ -855,11 +824,12 @@ BEGIN {
         system("cp " bibtmpfile " " BIBFILE \
                "; rm " tmpfile " " bibtmpfile)
         clear_screen()
-        back = 1
+        isEditBIB = 0
+        isBack = 1
     }
 
 	if (response == "No") {
-	    back = 1
+	    isBack = 1
 	}
 
 
@@ -873,9 +843,9 @@ BEGIN {
 	    continue
 	}
 
-	if (back == 1 || response == backtext || response == "Main Menu") {
+	if (isBack == 1 || response == backtext || response == "Main Menu") {
         restore()
-        back = 0
+        isBack = 0
     }
 }
 
@@ -924,7 +894,8 @@ function restore() {
     string = ""; str = "";
     action = ""; movement = "default";
     ADD = ""; DEL = ""; RMV = "";
-    bib_get = 0; download = 0; database = 0; sind = 0
+    isBibGet = 0; isDownload = 0; database = 0; isSearch = 0;
+    isBack = 0; isEditBIB = 0;
 }
 
 function notify(msg, str) {
@@ -1338,7 +1309,7 @@ function redraw(tmsg, bmsg) {
 function menu_TUI(list, delim, num, tmsg, bmsg) {
 
     cursor = 1
-    if (sind == 1) {
+    if (isSearch == 1) {
         menu_TUI_page(slist, delim)
     }
     else {
@@ -1373,7 +1344,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
                     slist = search(list, delim, substr(answer, 2))
                     if (slist != "") {
                         menu_TUI_page(slist, delim)
-                        cursor = 1; curpage = 1; sind = 1
+                        cursor = 1; curpage = 1; isSearch = 1
                     }
                     break
                 }
@@ -1392,16 +1363,16 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
             ########################
 
             if ( answer == "r" ||
-               ( answer == "h" && sind == 1 ) ||
+               ( answer == "h" && isSearch == 1 ) ||
                ( answer ~ /[[:digit:]]/ && (+answer > +Narr || +answer < 1) ) ) {
                    menu_TUI_page(list, delim)
                    curpage = (+curpage > +page ? page : curpage)
-                   sind = 0;
+                   isSearch = 0;
                    break
                }
             if ( answer == "\r" || answer == "l" ) {
                 answer = Ncursor;
-                sind = 0;
+                isSearch = 0;
                 break
             }
             if ( answer == "q" ) exit
