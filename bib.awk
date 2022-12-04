@@ -303,12 +303,12 @@ BEGIN {
 	    bmsg = "Action: " response;
 	    action = response
 	    if (faillist == "") {
-	        back = 1
-	    }
-	    else {
-		back = 0
-		continue
-	    }
+            back = 1
+        }
+        else {
+            back = 0
+        continue
+        }
 	}
 
 	# open sublibraries: layer 1
@@ -423,15 +423,15 @@ BEGIN {
 	    ## manually build database: layer 2
 	    ## automatically update database: layer 2
 	    if (action == "manually build database" || action == "automatically update database") {
-		ref_gen(BIBFILE)
-		save()
-		list = biblist "\f" "Go Back...\n\n\n\n\n";
-		delim = "\f";
-		num = 6;
-	        tmsg = "Choose BibTeX entry to build database: "
-		bmsg = "Action: manually build database"
-		file = PDFPATH response
-	    }
+            ref_gen(BIBFILE)
+            save()
+            list = biblist "\f" "Go Back...\n\n\n\n\n";
+            delim = "\f";
+            num = 6;
+            tmsg = "Choose BibTeX entry to build database: "
+            bmsg = "Action: manually build database"
+            file = PDFPATH response
+        }
 
 	    ## open sublibraries: layer 2
 	    if (action == "open sublibraries") { # open sublibrary
@@ -627,11 +627,11 @@ BEGIN {
 	    ## manually build database: layer 3
 	    ## automatically update database: layer 3
 	    if (action == "manually build database" || action == "automatically update database") {
-		meta_to_file(file, label, title, author, journal, doi)
-		yesno("Update " file " to " label)
-		database = ( action == "manually build database" ? 1 : 2 )
-		continue
-	    }
+            meta_to_file(file, label, title, author, journal, doi)
+            yesno("Update " file " to " label)
+            database = ( action == "manually build database" ? 1 : 2 )
+            continue
+        }
 
 	    ## create sublibraries: layer 2
 	    ## edit sublibraries: layer 4 if ADD
@@ -704,50 +704,49 @@ BEGIN {
 
 	    ## search on crossref: bib_get
 	    if (bib_get == 1) {
-		getline BIB < BIBFILE
-		close(BIBFILE)
-		regex = ".*" label ".*"
-		match(BIB, regex)
-		if (RSTART) {
-		    notify("Duplicated BibTeX entry; press enter to continue")
-		    clear_screen()
-		}
-		else {
-		    print "\n" bibtex "\n" >> BIBFILE
-		}
-		yesno("Download corresponding pdf file?")
-		download = 1; bib_get = 0;
-		continue
-	    }
+            getline BIB < BIBFILE
+            close(BIBFILE)
+            regex = ".*" label ".*"
+            match(BIB, regex)
+            if (RSTART) {
+                notify("Duplicated BibTeX entry; press enter to continue")
+                clear_screen()
+            }
+            else {
+                print "\n" bibtex "\n" >> BIBFILE
+            }
+            yesno("Download corresponding pdf file?")
+            download = 1; bib_get = 0;
+            continue
+        }
 
 	    ## search on crossref: download
 	    if (download == 1) {
-		split(bibtex, bibtexarr, "\n")
-		for (line in bibtexarr) {
-		    if (bibtexarr[line] ~ /^[[:blank:]]*url[[:blank:]]?=[[:blank:]]?{.*/) {
-			gsub(/^[[:blank:]]*url[[:blank:]]?=[[:blank:]]?{|}.*/, "", bibtexarr[line])
-			url = bibtexarr[line]
-		    }
-		}
-		system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
-		system("mkdir -p " NTEPATH label "; " \
-		       "mkdir -p " APXPATH label "; " )
-
-		notify("Open in " label " in " BROWSER \
-		       " and create \n" \
-		       NTEPATH label "\n" \
-		       APXPATH label "\n" \
-		       "for notes, sublibraries and appendices respectively.\n" \
-		       "press enter to continue")
-		back = 1; download = 0
-	    }
+            split(bibtex, bibtexarr, "\n")
+            for (line in bibtexarr) {
+                if (bibtexarr[line] ~ /^[[:blank:]]*url[[:blank:]]?=[[:blank:]]?{.*/) {
+                    gsub(/^[[:blank:]]*url[[:blank:]]?=[[:blank:]]?{|}.*/, "", bibtexarr[line])
+                    url = bibtexarr[line]
+                }
+            }
+            system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
+            system("mkdir -p " NTEPATH label "; " \
+                   "mkdir -p " APXPATH label "; " )
+            notify("Open in " label " in " BROWSER \
+                   " and create \n" \
+                   NTEPATH label "\n" \
+                   APXPATH label "\n" \
+                   "for notes, sublibraries and appendices respectively.\n" \
+                   "press enter to continue")
+            back = 1; download = 0
+        }
 
 	    ## update database
 	    if (database == 1) {
-		mv_rm(file, label)
-		notify(label " updated; press enter to continue")
-		back = 1; database = 0
-	    }
+            mv_rm(file, label)
+            notify(label " updated; press enter to continue")
+            back = 1; database = 0
+        }
 	    if (database == 2) {
 		mv_rm(file, label)
 		orig = file; gsub(PDFPATH, "", file)
@@ -884,6 +883,7 @@ function yesno(topmsg) {
     num = 1;
     tmsg = topmsg
     bmsg = "Yes-No Question"
+    menu_TUI_page(list, delim)
 }
 
 function meta_to_file(file, label, title, author, journal, doi) {
@@ -1332,7 +1332,11 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
                    sind = 0;
                    break
                }
-            if ( answer == "\r" || answer == "l" ) { answer = Ncursor; break }
+            if ( answer == "\r" || answer == "l" ) {
+                answer = Ncursor;
+                sind = 0;
+                break
+            }
             if ( answer == "q" ) exit
             if ( answer == "h" ) { answer = "Go Back..."; disp[answer] = "Go Back..."; break }
             if ( answer == "n" && +curpage < +page) { curpage++; break }
