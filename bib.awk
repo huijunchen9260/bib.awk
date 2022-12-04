@@ -44,7 +44,16 @@ BEGIN {
     NTEPATH = PDFPATH "Notes/"		# Notes path
     LIBPATH = PDFPATH "Libs/"		# Libraries path
     APXPATH = PDFPATH "Appendices/"	# Appendices path
+    layer = 1
     movement = "default";		# movement cannot be empty
+    RATIO = 0.35
+
+    isBibGet = 0
+    isDownload = 0
+    isSearch = 0
+    isBack = 0
+    isEditBIB = 0
+    isChooseFile = 0
 
     #####################
     #  Start of script  #
@@ -152,12 +161,14 @@ BEGIN {
         # search on crossref by metadata: layer 1
         # manually build database: layer 1
         if (response == "search on crossref by metadata" || response == "manually build database") {
+
+
             cmd = "printf '%s\n' " PDFPATH "*.pdf"
             cmd | getline pdf
             close(cmd)
             gsub(PDFPATH, "", pdf)
             save()
-            list = pdf "\n" "Go Back...";
+            list = pdf "Go Back...";
             delim = "\n";
             num = 1;
             tmsg = ( response == "search on crossref by metadata" ? \
@@ -167,6 +178,7 @@ BEGIN {
              "Action: search pdf metadata on crossref" : \
              "Action: manually build database" )
             action = response
+            isChooseFile = 1
             continue
         }
 
@@ -255,42 +267,31 @@ BEGIN {
                 basename = pdfarr[file]
                 gsub(/\.[^\.]*$|^.*\//, "", basename)
                 match(labellist, basename)
+                if (RSTART) { continue; }
+                meta_extract(pdfarr[file])
+                match(metadata, /^\/Title[[:blank:]]?\([[:blank:]]?.*$\)/)
                 if (RSTART) {
-                    continue
-                }
-                else {
-                    meta_extract(pdfarr[file])
-                    match(metadata, /^\/Title[[:blank:]]?\([[:blank:]]?.*$\)/)
-                    if (RSTART) {
-                        metadata = substr(metadata, RSTART, RLENGTH)
-                        gsub(/\/Title[[:blank:]]?\([[:blank:]]?|\)/, "", metadata)
-                        if (metadata != "") {
-                            match(metalist, metadata)
-                            if (RSTART) {
-                                for (data in metalistarr) {
-                                    match(metalistarr[data], metadata)
-                                    if (RSTART) {
-                                        split(metalistarr[data], metaarr, "\n")
-                                        meta_to_file(pdfarr[file], \
-                                                     metaarr[1], metaarr[2], \
-                                                     metaarr[5], metaarr[4], \
-                                                     metaarr[6])
-                                        mv_rm(pdfarr[file], metaarr[1])
-                                    }
+                    metadata = substr(metadata, RSTART, RLENGTH)
+                    gsub(/\/Title[[:blank:]]?\([[:blank:]]?|\)/, "", metadata)
+                    if (metadata != "") {
+                        match(metalist, metadata)
+                        if (RSTART) {
+                            for (data in metalistarr) {
+                                match(metalistarr[data], metadata)
+                                if (RSTART) {
+                                    split(metalistarr[data], metaarr, "\n")
+                                    meta_to_file(pdfarr[file], \
+                                                 metaarr[1], metaarr[2], \
+                                                 metaarr[5], metaarr[4], \
+                                                 metaarr[6])
+                                    mv_rm(pdfarr[file], metaarr[1])
+                                    continue
                                 }
                             }
-                            else {
-                                faillist = faillist "\f" basename ".pdf"
-                            }
                         }
-                        else {
-                            faillist = faillist "\f" basename ".pdf"
-                        }
-                    }
-                    else {
-                        faillist = faillist "\f" basename ".pdf"
                     }
                 }
+                faillist = faillist "\f" basename ".pdf"
             }
             faillist = substr(faillist, 2)
             save()
@@ -301,13 +302,9 @@ BEGIN {
             tmsg = "Choose file to encode metadata manually:";
             bmsg = "Action: " response;
             action = response
-            if (faillist == "") {
-                isBack = 1
-            }
-            else {
-                isBack = 0
-                continue
-            }
+            isChooseFile = 1
+            if (faillist == "") { isBack = 1; }
+            else { isBack = 0; continue; }
         }
 
         # open sublibraries: layer 1
@@ -376,7 +373,7 @@ BEGIN {
         }
 
 
-        # choosing a file
+        # choosed a file
         if (response ~ /^.*\.[[:alpha:]][[:alpha:]][[:alpha:]]$/) {
 
             ## search on crossref by metadata: layer 2
@@ -458,6 +455,9 @@ BEGIN {
                 tmsg = "Choose action for " response
                 bmsg = "Action: edit sublibraries"
             }
+
+            isChooseFile = 0
+
         }
 
         # edit sublibraries: layer 3
@@ -750,6 +750,7 @@ BEGIN {
             }
             else {
                 isBack = 0
+                isChooseFile = 1
                 continue
             }
         }
@@ -856,22 +857,34 @@ END {
 }
 
 function load() {
-    layer--
-    response = saved[layer*6 - 5]
-    list = saved[layer*6 - 4]
-    delim = saved[layer*6 - 3]
-    num = saved[layer*6 - 2]
-    tmsg = saved[layer*6 - 1]
-    bmsg = saved[layer*6]
+    layer = ( layer == 1 ? layer : layer - 1 )
+    isBibGet = saved[layer*12 - 11]
+    isDownload = saved[layer*12 - 10]
+    isSearch = saved[layer*12 - 9]
+    isBack = saved[layer*12 - 8]
+    isEditBIB = saved[layer*12 - 7]
+    isChooseFile = saved[layer*12 - 6]
+    response = saved[layer*12 - 5]
+    list = saved[layer*12 - 4]
+    delim = saved[layer*12 - 3]
+    num = saved[layer*12 - 2]
+    tmsg = saved[layer*12 - 1]
+    bmsg = saved[layer*12]
 }
 
 function save() {
-    saved[layer*6 - 5] = response
-    saved[layer*6 - 4] = list
-    saved[layer*6 - 3] = delim
-    saved[layer*6 - 2] = num
-    saved[layer*6 - 1] = tmsg
-    saved[layer*6] = bmsg
+    saved[layer*12 - 11] = isBibGet
+    saved[layer*12 - 10] = isDownload
+    saved[layer*12 - 9] = isSearch
+    saved[layer*12 - 8] = isBack
+    saved[layer*12 - 7] = isEditBIB
+    saved[layer*12 - 6] = isChooseFile
+    saved[layer*12 - 5] = response
+    saved[layer*12 - 4] = list
+    saved[layer*12 - 3] = delim
+    saved[layer*12 - 2] = num
+    saved[layer*12 - 1] = tmsg
+    saved[layer*12] = bmsg
     layer++
 }
 
@@ -894,8 +907,9 @@ function restore() {
     string = ""; str = "";
     action = ""; movement = "default";
     ADD = ""; DEL = ""; RMV = "";
+    layer = 1
     isBibGet = 0; isDownload = 0; database = 0; isSearch = 0;
-    isBack = 0; isEditBIB = 0;
+    isBack = 0; isEditBIB = 0; isChooseFile = 0;
 }
 
 function notify(msg, str) {
@@ -1316,7 +1330,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
         menu_TUI_page(list, delim)
     }
 
-    while (answer !~ /^[[:digit:]]+$|Go\ Back\.\.\./) {
+    while (answer !~ /^[[:digit:]]+$|Go Back\.\.\./) {
 
         redraw(tmsg, bmsg)
 
@@ -1376,6 +1390,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
                 break
             }
             if ( answer == "q" ) exit
+            if ( answer == "v" && isChooseFile == 1 ) { system(OPENER " \"" PDFPATH disp[Ncursor] "\" &"); continue; }
             if ( answer == "h" ) { answer = "Go Back..."; disp[answer] = "Go Back..."; break }
             if ( answer == "n" && +curpage < +page) { curpage++; break }
             if ( answer == "n" && +curpage == +page) { cursor = ( +curpage == +page ? Narr - dispnum*(curpage-1) : dispnum ); break }
