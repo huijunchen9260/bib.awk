@@ -80,29 +80,275 @@ BEGIN {
 
     while (1) {
 
-    response = menu_TUI(list, delim, num, tmsg, bmsg)
+        response = menu_TUI(list, delim, num, tmsg, bmsg)
 
-	#####################
-	#  Action Matching  #
-	#####################
+        #####################
+        #  Action Matching  #
+        #####################
 
-	# search on crossref by text: layer 1
-	# search on crossref by metadata: layer 3 if not doi
-	if (response == "search on crossref by text" || \
-	    response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
-	    if (response == "search on crossref by text") {
-            string = notify("Type string to search on crossref:", string)
+        # search on crossref by text: layer 1
+        # search on crossref by metadata: layer 3 if not doi
+        if (response == "search on crossref by text" || \
+            response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
+                if (response == "search on crossref by text") {
+                    string = notify("Type string to search on crossref:", string)
+                    clear_screen()
+                    str = string
+                    gsub(/ /, "+", string)
+                }
+
+                if (str ~ /10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-[:alnum:]]+/) {
+                    doi = str
+                    bib_get = 1
+                    clear_screen()
+                    cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
+                    # cmd = "curl --trace-time \"http://api.crossref.org/works/" doi "/transform/application/x-bibtex\""
+                    cmd | getline bibtex
+                    close(cmd)
+                    Nbibtex = split(bibtex, bibarr, "},")
+                    bibtex = ""
+                    for (i = 1; i <= Nbibtex; i++) {
+                        if (i == 1) {
+                            match(bibarr[i], /,.*=/)
+                            bibtex = bibtex "\n" substr(bibarr[i], 1, RSTART) "\n\t" substr(bibarr[i], RSTART+1) "},"
+                        }
+                        else if (i == Nbibtex) {
+                            bibtex = bibtex "\n\t" substr(bibarr[i], 1, length(bibarr[i]) - 2) "\n}"
+                        }
+                        else {
+                            bibtex = bibtex "\n\t" bibarr[i] "},"
+                        }
+                    }
+
+                bibtex = substr(bibtex, 3)
+                ## alternate the label
+                bibtex = label_alter(bibtex)
+
+                notify("BibTeX listed below, press enter to continue...\n" bibtex)
+                yesno("Add this BibTeX to " BIBFILE "?")
+                continue
+                }
+                else {
+                    if (response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
+                        gsub(/\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)/, "", response)
+                        string = response
+                        str = string
+                        gsub(/ /, "+", string)
+                    }
+                    print "Wait for crossref API to response, may need 30s to 1 min depends on API connection."
+                    crossref_json_process(string)
+                    gscholar = "Search on Google Scholar...\n\n\n\n\n"
+                    back_last = "Go Back... \n\n\n\n\n"
+                    save()
+                    list = jsonlist "\f" gscholar "\f" back_last;
+                    delim = "\f";
+                    num = 6;
+                    tmsg = "Search result";
+                    bmsg = "Action: search \"" str "\" on crossref";
+                    continue
+                }
+        }
+
+        # search on crossref by metadata: layer 1
+        # manually build database: layer 1
+        if (response == "search on crossref by metadata" || response == "manually build database") {
+            cmd = "printf '%s\n' " PDFPATH "*.pdf"
+            cmd | getline pdf
+            close(cmd)
+            gsub(PDFPATH, "", pdf)
+            save()
+            list = pdf "\n" "Go Back...";
+            delim = "\n";
+            num = 1;
+            tmsg = ( response == "search on crossref by metadata" ? \
+             "Choose pdf for metadata" : \
+             "Choose pdf to build database" )
+            bmsg = ( response == "search on crossref by metadata" ? \
+             "Action: search pdf metadata on crossref" : \
+             "Action: manually build database" )
+            action = response
+            continue
+        }
+
+        # search on google scholar: layer 1
+        # search on crossref by text: layer 3 if gscholar
+        if (response == "search on google scholar" || response == gscholar) {
+            if (response == "search on google scholar") {
+                string = notify("Type string to search on google scholar:", string)
+                clear_screen()
+                gsub(/ /, "+", string)
+            }
+            system(BROWSER " " BIBUKEY \
+                  "https://scholar.google.com/scholar?q=" \
+                  string " 2>&1 1>/dev/null &")
             clear_screen()
-            str = string
-            gsub(/ /, "+", string)
-	    }
+            wait_clip()
+            if (bibtex ~ /^@[[:alpha:]]*{.*$/) {
+                ## alternate the label
+                bibtex = label_alter(bibtex)
+                notify("BibTeX listed below, press enter to continue...\n" bibtex)
+                yesno("Add this BibTeX to" BIBFILE "?")
+                bib_get = 1;
+                continue
+            }
+            else {
+                notify("Not copying bibtex; press enter to go to main menu")
+                back = 1
+            }
+        }
 
-	    if (str ~ /10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-[:alnum:]]+/) {
-            doi = str
+        # open research paper: layer 1
+        # open research paper website: layer 1
+        # copy BibTeX label: layer 1
+        # write note: layer 1
+        # open research appendices: layer 1
+        # edit existing BibTeX entry: layer 1
+        # manually create file hierarchy: layer 1
+        # create sublibraries: layer 1
+        if (response == "open research paper" || \
+            response == "open research paper website" || \
+            response == "copy BibTeX label" || \
+            response == "write note" || \
+            response == "open research appendices" || \
+            response == "edit existing BibTeX entry" || \
+            response == "manually create file hierarchy" || \
+            response == "create sublibraries") {
+            if (response == "create sublibraries") { # create sublibrary
+                name = notify("Type the name of the sublibrary:", name)
+                gsub(/ /, "_", name)
+                clear_screen()
+                file = LIBPATH name ".bib"
+            }
+            ref_gen(BIBFILE)
+            save()
+            list = biblist "\f" "Go Back...\n\n\n\n\n";
+            delim = "\f";
+            num = 6;
+            tmsg = "Choose bib entry to " response ":";
+            bmsg = "Action: " response;
+            action = response
+            continue
+        }
+
+        # automatically create file hierarchy: layer 1
+        if (response == "automatically create file hierarchy") {
+            ref_gen(BIBFILE)
+            split(labellist, labellistarr, "\n")
+            for (line in labellistarr) {
+            system("mkdir -p " NTEPATH labellistarr[line] "; " \
+                   "mkdir -p " APXPATH labellistarr[line] "; " )
+            pdflist = pdflist "\n" labellistarr[line]
+            print "Create file hierarchy for " pdflist
+            }
+        }
+
+        # automatically build database: layer 1
+        if (response == "automatically update database") {
+            faillist = ""
+            ref_gen(BIBFILE)
+            cmd = "printf '%s\n' " PDFPATH "*.pdf"
+            cmd | getline pdf
+            close(cmd)
+            split(pdf, pdfarr, "\n")
+            split(metalist, metalistarr, "\f")
+            for (file in pdfarr) {
+                basename = pdfarr[file]
+                gsub(/\.[^\.]*$|^.*\//, "", basename)
+                match(labellist, basename)
+                if (RSTART) {
+                    continue
+                }
+                else {
+                    meta_extract(pdfarr[file])
+                    match(metadata, /^\/Title[[:blank:]]?\([[:blank:]]?.*$\)/)
+                    if (RSTART) {
+                        metadata = substr(metadata, RSTART, RLENGTH)
+                        gsub(/\/Title[[:blank:]]?\([[:blank:]]?|\)/, "", metadata)
+                        if (metadata != "") {
+                            match(metalist, metadata)
+                            if (RSTART) {
+                                for (data in metalistarr) {
+                                    match(metalistarr[data], metadata)
+                                    if (RSTART) {
+                                        split(metalistarr[data], metaarr, "\n")
+                                        meta_to_file(pdfarr[file], \
+                                                     metaarr[1], metaarr[2], \
+                                                     metaarr[5], metaarr[4], \
+                                                     metaarr[6])
+                                        mv_rm(pdfarr[file], metaarr[1])
+                                    }
+                                }
+                            }
+                            else {
+                                faillist = faillist "\f" basename ".pdf"
+                            }
+                        }
+                        else {
+                            faillist = faillist "\f" basename ".pdf"
+                        }
+                    }
+                    else {
+                        faillist = faillist "\f" basename ".pdf"
+                    }
+                }
+            }
+            faillist = substr(faillist, 2)
+            save()
+            backtext = "All PDF files in database is updated!"
+            list = ( faillist == "" ?  backtext : faillist "\f" "Main Menu" );
+            delim = "\f";
+            num = 1;
+            tmsg = "Choose file to encode metadata manually:";
+            bmsg = "Action: " response;
+            action = response
+            if (faillist == "") {
+                back = 1
+            }
+            else {
+                back = 0
+                continue
+            }
+        }
+
+        # open sublibraries: layer 1
+        # edit sublibraries: layer 1
+        if (response == "open sublibraries" || response == "edit sublibraries") {
+            cmd = "printf '%s\n' " LIBPATH "*.bib"
+            cmd | getline library
+            close(cmd)
+            gsub(LIBPATH, "", library)
+            save()
+            list = library "Go Back..."
+            delim = "\n";
+            num = 1;
+            tmsg = ( response == "open sublibraries" ? \
+                 "Choose sublibrary to open" : \
+                 "Choose sublibrary to edit" )
+            bmsg = ( response == "open sublibraries" ? \
+                 "Action: open sublibraries" : \
+                 "Action: edit sublibraries" )
+            action = response
+        }
+
+
+        # search on crossref by text: layer 2
+        # search on crossref by metadata: layer 3 if doi
+        if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/ || \
+            response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
+            # response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
             bib_get = 1
+            if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
+            split(response, fieldarr, "\n")
+            gsub(/\tDOI: /, "", fieldarr[6])
+            doi = fieldarr[6]
+            }
+            # if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
+            if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
+                gsub(/^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)$/, "", response)
+                doi = response
+            }
             clear_screen()
             cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
-            # cmd = "curl --trace-time \"http://api.crossref.org/works/" doi "/transform/application/x-bibtex\""
             cmd | getline bibtex
             close(cmd)
             Nbibtex = split(bibtex, bibarr, "},")
@@ -115,7 +361,7 @@ BEGIN {
                 else if (i == Nbibtex) {
                     bibtex = bibtex "\n\t" substr(bibarr[i], 1, length(bibarr[i]) - 2) "\n}"
                 }
-               else {
+                else {
                     bibtex = bibtex "\n\t" bibarr[i] "},"
                 }
             }
@@ -127,574 +373,325 @@ BEGIN {
             notify("BibTeX listed below, press enter to continue...\n" bibtex)
             yesno("Add this BibTeX to " BIBFILE "?")
             continue
-	    }
-        else {
-            if (response ~ /\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?.*\)/) {
-                gsub(/\/[[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)/, "", response)
-                string = response
-                str = string
-                gsub(/ /, "+", string)
-            }
-            print "Wait for crossref API to response, may need 30s to 1 min depends on API connection."
-            crossref_json_process(string)
-            gscholar = "Search on Google Scholar...\n\n\n\n\n"
-            back_last = "Go Back... \n\n\n\n\n"
-            save()
-            list = jsonlist "\f" gscholar "\f" back_last;
-            delim = "\f";
-            num = 6;
-            tmsg = "Search result";
-            bmsg = "Action: search \"" str "\" on crossref";
-            continue
         }
-	}
 
-	# search on crossref by metadata: layer 1
-	# manually build database: layer 1
-	if (response == "search on crossref by metadata" || response == "manually build database") {
-	    cmd = "printf '%s\n' " PDFPATH "*.pdf"
-	    cmd | getline pdf
-	    close(cmd)
-	    gsub(PDFPATH, "", pdf)
-	    save()
-	    list = pdf "\n" "Go Back...";
-	    delim = "\n";
-	    num = 1;
-	    tmsg = ( response == "search on crossref by metadata" ? \
-		 "Choose pdf for metadata" : \
-		 "Choose pdf to build database" )
-	    bmsg = ( response == "search on crossref by metadata" ? \
-		 "Action: search pdf metadata on crossref" : \
-		 "Action: manually build database" )
-	    action = response
-	    continue
-	}
+        # choosing a file
+        if (response ~ /^.*\.[[:alpha:]][[:alpha:]][[:alpha:]]$/) {
 
-	# search on google scholar: layer 1
-	# search on crossref by text: layer 3 if gscholar
-	if (response == "search on google scholar" || response == gscholar) {
-	    if (response == "search on google scholar") {
-            string = notify("Type string to search on google scholar:", string)
-            clear_screen()
-            gsub(/ /, "+", string)
-	    }
-	    system(BROWSER " " BIBUKEY \
-		      "https://scholar.google.com/scholar?q=" \
-		      string " 2>&1 1>/dev/null &")
-	    clear_screen()
-	    wait_clip()
-	    if (bibtex ~ /^@[[:alpha:]]*{.*$/) {
-            ## alternate the label
-            bibtex = label_alter(bibtex)
-            notify("BibTeX listed below, press enter to continue...\n" bibtex)
-            yesno("Add this BibTeX to" BIBFILE "?")
-            bib_get = 1;
-            continue
-	    }
-	    else {
-            notify("Not copying bibtex; press enter to go to main menu")
-            back = 1
-        }
-	}
-
-	# open research paper: layer 1
-	# open research paper website: layer 1
-	# copy BibTeX label: layer 1
-	# write note: layer 1
-	# open research appendices: layer 1
-	# edit existing BibTeX entry: layer 1
-	# manually create file hierarchy: layer 1
-	# create sublibraries: layer 1
-	if (response == "open research paper" || \
-	    response == "open research paper website" || \
-	    response == "copy BibTeX label" || \
-	    response == "write note" || \
-	    response == "open research appendices" || \
-	    response == "edit existing BibTeX entry" || \
-	    response == "manually create file hierarchy" || \
-	    response == "create sublibraries") {
-	    if (response == "create sublibraries") { # create sublibrary
-            name = notify("Type the name of the sublibrary:", name)
-            gsub(/ /, "_", name)
-            clear_screen()
-            file = LIBPATH name ".bib"
-        }
-        ref_gen(BIBFILE)
-        save()
-        list = biblist "\f" "Go Back...\n\n\n\n\n";
-        delim = "\f";
-	    num = 6;
-	    tmsg = "Choose bib entry to " response ":";
-	    bmsg = "Action: " response;
-	    action = response
-	    continue
-	}
-
-	# automatically create file hierarchy: layer 1
-	if (response == "automatically create file hierarchy") {
-	    ref_gen(BIBFILE)
-	    split(labellist, labellistarr, "\n")
-	    for (line in labellistarr) {
-		system("mkdir -p " NTEPATH labellistarr[line] "; " \
-		       "mkdir -p " APXPATH labellistarr[line] "; " )
-		pdflist = pdflist "\n" labellistarr[line]
-		print "Create file hierarchy for " pdflist
-	    }
-	}
-
-	# automatically build database: layer 1
-	if (response == "automatically update database") {
-	    faillist = ""
-	    ref_gen(BIBFILE)
-	    cmd = "printf '%s\n' " PDFPATH "*.pdf"
-	    cmd | getline pdf
-	    close(cmd)
-	    split(pdf, pdfarr, "\n")
-	    split(metalist, metalistarr, "\f")
-	    for (file in pdfarr) {
-		basename = pdfarr[file]
-		gsub(/\.[^\.]*$|^.*\//, "", basename)
-		match(labellist, basename)
-		if (RSTART) {
-		    continue
-		}
-		else {
-		    meta_extract(pdfarr[file])
-		    match(metadata, /^\/Title[[:blank:]]?\([[:blank:]]?.*$\)/)
-		    if (RSTART) {
-			metadata = substr(metadata, RSTART, RLENGTH)
-			gsub(/\/Title[[:blank:]]?\([[:blank:]]?|\)/, "", metadata)
-			if (metadata != "") {
-			    match(metalist, metadata)
-			    if (RSTART) {
-				for (data in metalistarr) {
-				    match(metalistarr[data], metadata)
-				    if (RSTART) {
-					split(metalistarr[data], metaarr, "\n")
-					meta_to_file(pdfarr[file], \
-						     metaarr[1], metaarr[2], \
-						     metaarr[5], metaarr[4], \
-						     metaarr[6])
-					mv_rm(pdfarr[file], metaarr[1])
-				    }
-				}
-			    }
-			    else {
-				faillist = faillist "\f" basename ".pdf"
-			    }
-			}
-			else {
-			    faillist = faillist "\f" basename ".pdf"
-			}
-		    }
-		    else {
-			faillist = faillist "\f" basename ".pdf"
-		    }
-
-		}
-	    }
-	    faillist = substr(faillist, 2)
-	    save()
-	    backtext = "All PDF files in database is updated!"
-	    list = ( faillist == "" ?  backtext : faillist "\f" "Main Menu" );
-	    delim = "\f";
-	    num = 1;
-	    tmsg = "Choose file to encode metadata manually:";
-	    bmsg = "Action: " response;
-	    action = response
-	    if (faillist == "") {
-            back = 1
-        }
-        else {
-            back = 0
-        continue
-        }
-	}
-
-	# open sublibraries: layer 1
-	# edit sublibraries: layer 1
-	if (response == "open sublibraries" || response == "edit sublibraries") {
-	    cmd = "printf '%s\n' " LIBPATH "*.bib"
-	    cmd | getline library
-	    close(cmd)
-	    gsub(LIBPATH, "", library)
-	    save()
-	    list = library "\n" "Go Back..."
-	    delim = "\n";
-	    num = 1;
-	    tmsg = ( response == "open sublibraries" ? \
-		     "Choose sublibrary to open" : \
-		     "Choose sublibrary to edit" )
-	    bmsg = ( response == "open sublibraries" ? \
-		     "Action: open sublibraries" : \
-		     "Action: edit sublibraries" )
-	    action = response
-	}
-
-
-	# search on crossref by text: layer 2
-	# search on crossref by metadata: layer 3 if doi
-	if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/ || \
-	    response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
-	    # response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
-	    bib_get = 1
-	    if (response ~ /.*Title: .*\n\tCategory: .*\n\tDOI: .*/) {
-		split(response, fieldarr, "\n")
-		gsub(/\tDOI: /, "", fieldarr[6])
-		doi = fieldarr[6]
-	    }
-	    # if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[-._;()/:[:alnum:]]+\)$/) {
-	    if (response ~ /^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?10\.[[:digit:]][[:digit:]][[:digit:]][[:digit:]]*\/[[:alnum:]]+\)$/) {
-            gsub(/^\/[-[:alpha:]]*[[:blank:]]?\([[:blank:]]?|\)$/, "", response)
-            doi = response
-	    }
-        clear_screen()
-        cmd = "curl -LH \"Accept: text/bibliography; style=bibtex\" http://dx.doi.org/" doi
-	    cmd | getline bibtex
-	    close(cmd)
-        Nbibtex = split(bibtex, bibarr, "},")
-        bibtex = ""
-        for (i = 1; i <= Nbibtex; i++) {
-            if (i == 1) {
-                match(bibarr[i], /,.*=/)
-                bibtex = bibtex "\n" substr(bibarr[i], 1, RSTART) "\n\t" substr(bibarr[i], RSTART+1) "},"
+            ## search on crossref by metadata: layer 2
+            if (action == "search on crossref by metadata") { # search on crossref by pdf metadata
+                meta_extract(PDFPATH response)
+                save()
+                list = metadata "\n" "Go Back...";
+                delim = "\n";
+                num = 1;
+                tmsg = "Choose metadata to search"
+                bmsg = "Action: search pdf metadata on crossref"
+                continue
             }
-            else if (i == Nbibtex) {
-                bibtex = bibtex "\n\t" substr(bibarr[i], 1, length(bibarr[i]) - 2) "\n}"
-            }
-            else {
-                bibtex = bibtex "\n\t" bibarr[i] "},"
-            }
-        }
-        bibtex = substr(bibtex, 3)
 
-	    ## alternate the label
-	    bibtex = label_alter(bibtex)
-
-	    notify("BibTeX listed below, press enter to continue...\n" bibtex)
-	    yesno("Add this BibTeX to " BIBFILE "?")
-	    continue
-	}
-
-	# choosing a file
-	if (response ~ /^.*\.[[:alpha:]][[:alpha:]][[:alpha:]]$/) {
-
-	    ## search on crossref by metadata: layer 2
-	    if (action == "search on crossref by metadata") { # search on crossref by pdf metadata
-		meta_extract(PDFPATH response)
-		save()
-		list = metadata "\n" "Go Back...";
-		delim = "\n";
-		num = 1;
-		tmsg = "Choose metadata to search"
-		bmsg = "Action: search pdf metadata on crossref"
-		continue
-	    }
-
-	    ## open research appendices: layer 2
-	    if (action == "open research appendices") { # open appendices
-            file = APXPATH label "/" response
-            cmd = "file -i \"" file "\" 2>/dev/null"
-            cmd | getline mimetype
-            close(cmd)
-            if (mimetype ~ /.*text\/.*|.*x-empty.*|.*json.*/) {
-                finale()
-                system(EDITOR " " file)
-                init()
-                clear_screen()
-            }
-            else if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
-                system(OPENER " " file)
-                clear_screen()
-            }
-            else {
-                cmd = "xdotool getactivewindow &"
-                cmd | getline wid
+            ## open research appendices: layer 2
+            if (action == "open research appendices") { # open appendices
+                file = APXPATH label "/" response
+                cmd = "file -i \"" file "\" 2>/dev/null"
+                cmd | getline mimetype
                 close(cmd)
-                system("xdotool windowunmap " wid " &")
-                system(OPENER " " file)
-                system("xdotool windowmap " wid " &")
-                clear_screen()
+                if (mimetype ~ /.*text\/.*|.*x-empty.*|.*json.*/) {
+                    finale()
+                    system(EDITOR " " file)
+                    init()
+                    clear_screen()
+                }
+                else if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
+                    system(OPENER " " file)
+                    clear_screen()
+                }
+                else {
+                    cmd = "xdotool getactivewindow &"
+                    cmd | getline wid
+                    close(cmd)
+                    system("xdotool windowunmap " wid " &")
+                    system(OPENER " " file)
+                    system("xdotool windowmap " wid " &")
+                    clear_screen()
+                }
+                back = 1;
+                continue
             }
-            back = 1;
-            continue
-	    }
 
-	    ## manually build database: layer 2
-	    ## automatically update database: layer 2
-	    if (action == "manually build database" || action == "automatically update database") {
-            ref_gen(BIBFILE)
-            save()
+            ## manually build database: layer 2
+            ## automatically update database: layer 2
+            if (action == "manually build database" || action == "automatically update database") {
+                ref_gen(BIBFILE)
+                save()
+                list = biblist "\f" "Go Back...\n\n\n\n\n";
+                delim = "\f";
+                num = 6;
+                tmsg = "Choose BibTeX entry to build database: "
+                bmsg = "Action: manually build database"
+                file = PDFPATH response
+            }
+
+            ## open sublibraries: layer 2
+            if (action == "open sublibraries") { # open sublibrary
+                file = LIBPATH response
+                ref_gen(file)
+                save()
+                list = biblist "\f" "Go Back...\n\n\n\n\n";
+                delim = "\f";
+                num = 6;
+                tmsg = "Choose BibTeX in " response " to open research paper"
+                bmsg = "Action: open sublibraries"
+            }
+
+            ## edit sublibraries: layer 2
+            if (action == "edit sublibraries") { # edit sublibrary
+                file = LIBPATH response
+                save()
+                ADD = "Add BibTeX entry"
+                DEL = "Delete BibTeX entry"
+                RMV = "Remove sublibrary"
+                list = ADD "\f" DEL "\f" RMV
+                delim = "\f";
+                num = 1;
+                tmsg = "Choose action for " response
+                bmsg = "Action: edit sublibraries"
+            }
+        }
+
+        # edit sublibraries: layer 3
+        if (response == ADD || response == DEL) {
+            if (response == ADD) {
+                ref_gen(BIBFILE)
+            }
+            else if (response == DEL) {
+                ref_gen(file)
+            }
             list = biblist "\f" "Go Back...\n\n\n\n\n";
             delim = "\f";
             num = 6;
-            tmsg = "Choose BibTeX entry to build database: "
-            bmsg = "Action: manually build database"
-            file = PDFPATH response
+            tmsg = "Choose BibTeX to " response
+            bmsg = "Action: edit sublibraries"
+            movement = response
+            continue
         }
 
-	    ## open sublibraries: layer 2
-	    if (action == "open sublibraries") { # open sublibrary
-		file = LIBPATH response
-		ref_gen(file)
-		save()
-		list = biblist "\f" "Go Back...\n\n\n\n\n";
-		delim = "\f";
-		num = 6;
-	        tmsg = "Choose BibTeX in " response " to open research paper"
-		bmsg = "Action: open sublibraries"
-	    }
-
-	    ## edit sublibraries: layer 2
-	    if (action == "edit sublibraries") { # edit sublibrary
-		file = LIBPATH response
-		save()
-		ADD = "Add BibTeX entry"
-		DEL = "Delete BibTeX entry"
-		RMV = "Remove sublibrary"
-		list = ADD "\f" DEL "\f" RMV
-		delim = "\f";
-		num = 1;
-	        tmsg = "Choose action for " response
-		bmsg = "Action: edit sublibraries"
-	    }
-	}
-
-	# edit sublibraries: layer 3
-	if (response == ADD || response == DEL) {
-	    if (response == ADD) {
-	        ref_gen(BIBFILE)
-	    }
-	    else if (response == DEL) {
-		ref_gen(file)
-	    }
-	    list = biblist "\f" "Go Back...\n\n\n\n\n";
-	    delim = "\f";
-	    num = 6;
-	    tmsg = "Choose BibTeX to " response
-	    bmsg = "Action: edit sublibraries"
-	    movement = response
-	    continue
-	}
-
-	# edit sublibraries: layer 3
-	if (response == RMV) {
-	    movement = response
-	    yesno("Really remove " file "?")
-	    continue
-	}
+        # edit sublibraries: layer 3
+        if (response == RMV) {
+            movement = response
+            yesno("Really remove " file "?")
+            continue
+        }
 
 
-	# bib entry selection
-	if (response ~ /.*BibTeX: .*\n\tTitle: .*\n\tYear: .*\n\tAuthor\(s\): .*/) {
-	    split(response, fieldarr, "\n")
-	    gsub(/BibTeX:[[:blank:]]*/, "", fieldarr[1]);
-	    label = fieldarr[1]
-	    gsub(/[[:blank:]]*Title:[[:blank:]]*/, "", fieldarr[2]);
-	    title = fieldarr[2]
-	    gsub(/[[:blank:]]*Year:[[:blank:]]*/, "", fieldarr[3]);
-	    year = fieldarr[3]
-	    gsub(/[[:blank:]]*Journal:[[:blank:]]*/, "", fieldarr[4]);
-	    journal = fieldarr[4]
-	    gsub(/[[:blank:]]*Author\(s\):[[:blank:]]*/, "", fieldarr[5]);
-	    author = fieldarr[5]
-	    gsub(/[[:blank:]]*DOI:[[:blank:]]*/, "", fieldarr[6]);
-	    doi = fieldarr[6]
+        # bib entry selection
+        if (response ~ /.*BibTeX: .*\n\tTitle: .*\n\tYear: .*\n\tAuthor\(s\): .*/) {
+            split(response, fieldarr, "\n")
+            gsub(/BibTeX:[[:blank:]]*/, "", fieldarr[1]);
+            label = fieldarr[1]
+            gsub(/[[:blank:]]*Title:[[:blank:]]*/, "", fieldarr[2]);
+            title = fieldarr[2]
+            gsub(/[[:blank:]]*Year:[[:blank:]]*/, "", fieldarr[3]);
+            year = fieldarr[3]
+            gsub(/[[:blank:]]*Journal:[[:blank:]]*/, "", fieldarr[4]);
+            journal = fieldarr[4]
+            gsub(/[[:blank:]]*Author\(s\):[[:blank:]]*/, "", fieldarr[5]);
+            author = fieldarr[5]
+            gsub(/[[:blank:]]*DOI:[[:blank:]]*/, "", fieldarr[6]);
+            doi = fieldarr[6]
 
-	    ## open research paper: layer 2
-	    ## open sublibraries: layer 3
-	    if (action == "open research paper" || action == "open sublibraries") { # open pdf
-            if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
-                system(OPENER " " file)
-                clear_screen()
-            }
-            else {
-                cmd = "xdotool getactivewindow &"
-                cmd | getline wid
-                close(cmd)
-                system("xdotool windowunmap " wid " &")
-                system(READER " " PDFPATH label ".pdf")
-                system("xdotool windowmap " wid " &")
-                clear_screen()
-                if (action == "open sublibraries") {
-                    load()
+            ## open research paper: layer 2
+            ## open sublibraries: layer 3
+            if (action == "open research paper" || action == "open sublibraries") { # open pdf
+                if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
+                    system(OPENER " " file)
+                    clear_screen()
                 }
-            }
-            continue
-	    }
-
-	    ## open research paper website: layer 2
-	    if (action == "open research paper website") {
-            if (doi == "") {
-                notify("Cannot find DOI; press enter to continue")
-                # back = 1;
-            }
-            else {
-                url = "https://doi.org/" doi
-                system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
-                clear_screen()
-                # back = 1
-            }
-            continue
-	    }
-
-	    ## copy BibTeX label: layer 2
-	    if (action == "copy BibTeX label") {
-            system("printf '%s' \"" label "\" | " CLIPINW)
-            notify(label " has copied to clipboard using " \
-                   CLIPINW "; press enter to continue...")
-            # back = 1
-            continue
-	    }
-
-	    ## write note: layer 2
-	    if (action == "write note") {
-            system("mkdir -p " NTEPATH label)
-            tex_template(NTEPATH label "/" label ".tex", title, author)
-            finale()
-            system(EDITOR " " NTEPATH label "/" label ".tex")
-            init()
-            clear_screen()
-	    }
-
-	    ## open research appendices: layer 2
-	    if (action == "open research appendices") {
-            cmd = "printf '%s\n' " APXPATH label "/*"
-            cmd | getline pdf
-            close(cmd)
-            gsub(APXPATH label "/", "", pdf)
-            if (pdf ~ /\*/) {
-                notify("No appendix found, press enter to continue")
-                clear_screen()
+                else {
+                    cmd = "xdotool getactivewindow &"
+                    cmd | getline wid
+                    close(cmd)
+                    system("xdotool windowunmap " wid " &")
+                    system(READER " " PDFPATH label ".pdf")
+                    system("xdotool windowmap " wid " &")
+                    clear_screen()
+                    if (action == "open sublibraries") load()
+                }
                 continue
             }
-            save()
 
-            sind = 0;
-            list = pdf "Go Back...";
-            delim = "\n";
-            num = 1;
-            tmsg = "Choose appendices file to open"
-            bmsg = "Action: " action
-            continue
-	    }
+            ## open research paper website: layer 2
+            if (action == "open research paper website") {
+                if (doi == "") {
+                    notify("Cannot find DOI; press enter to continue")
+                    # back = 1;
+                }
+                else {
+                    url = "https://doi.org/" doi
+                    system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
+                    clear_screen()
+                    # back = 1
+                }
+                continue
+            }
 
-	    ## edit existing BibTeX entry: layer 2
-	    if (action == "edit existing BibTeX entry") {
+            ## copy BibTeX label: layer 2
+            if (action == "copy BibTeX label") {
+                system("printf '%s' \"" label "\" | " CLIPINW)
+                notify(label " has copied to clipboard using " \
+                       CLIPINW "; press enter to continue...")
+                # back = 1
+                continue
+            }
+
+            ## write note: layer 2
+            if (action == "write note") {
+                system("mkdir -p " NTEPATH label)
+                tex_template(NTEPATH label "/" label ".tex", title, author)
+                finale()
+                system(EDITOR " " NTEPATH label "/" label ".tex")
+                init()
+                clear_screen()
+            }
+
+            ## open research appendices: layer 2
+            if (action == "open research appendices") {
+                cmd = "printf '%s\n' " APXPATH label "/*"
+                cmd | getline pdf
+                close(cmd)
+                gsub(APXPATH label "/", "", pdf)
+                if (pdf ~ /\*/) {
+                    notify("No appendix found, press enter to continue")
+                    clear_screen()
+                    continue
+                }
+                save()
+
+                sind = 0;
+                list = pdf "Go Back...";
+                delim = "\n";
+                num = 1;
+                tmsg = "Choose appendices file to open"
+                bmsg = "Action: " action
+                continue
+            }
+
+            ## edit existing BibTeX entry: layer 2
+            if (action == "edit existing BibTeX entry") {
+                getline BIB < BIBFILE
+                close(BIBFILE)
+                split(BIB, bibarr, "@")
+                delete bibarr[1]
+                regex = label ".*"
+                srand()
+                tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
+                bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
+                for (entry in bibarr) {
+                    if (bibarr[entry] ~ regex) {
+                        printf("@%s", bibarr[entry]) > tmpfile
+                        finale()
+                        system(EDITOR " " tmpfile)
+                        init()
+                        clear_screen()
+                        getline ENTRY < tmpfile
+                        close(tmpfile)
+                        printf("%s", ENTRY) >> bibtmpfile
+                    }
+                    else {
+                        printf("@%s", bibarr[entry]) >> bibtmpfile
+                    }
+                }
+                system("cp " bibtmpfile " " BIBFILE \
+                       "; rm " tmpfile " " bibtmpfile)
+                clear_screen()
+                ref_gen(BIBFILE)
+                list = biblist "\f" "Go Back...\n\n\n\n\n";
+            }
+
+            ## manually create file hierarchy: layer 2
+            if (action == "manually create file hierarchy") {
+            system("mkdir -p " NTEPATH label "; " \
+                   "mkdir -p " APXPATH label "; " )
+
+            notify( "Create \n" \
+                   NTEPATH label "\n" \
+                   APXPATH label "\n" \
+                   "for notes, sublibraries and appendices respectively.\n" \
+                   "press enter to continue")
+            back = 1;
+            }
+
+            ## manually build database: layer 3
+            ## automatically update database: layer 3
+            if (action == "manually build database" || action == "automatically update database") {
+                meta_to_file(file, label, title, author, journal, doi)
+                yesno("Update " file " to " label)
+                database = ( action == "manually build database" ? 1 : 2 )
+                continue
+            }
+
+            ## create sublibraries: layer 2
+            ## edit sublibraries: layer 4 if ADD
+            if (action == "create sublibraries" || movement == ADD) {
+            getline FILE < file
+            close(file)
             getline BIB < BIBFILE
             close(BIBFILE)
             split(BIB, bibarr, "@")
             delete bibarr[1]
-            regex = label ".*"
-            srand()
-            tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
-            bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
-            for (entry in bibarr) {
+            regex = ".*" label ".*"
+            match(FILE, regex)
+            if (RSTART) {
+                notify("Duplicated BibTeX entry; press enter to continue")
+                clear_screen()
+            }
+            else {
+                for (entry in bibarr) {
                 if (bibarr[entry] ~ regex) {
-                    printf("@%s", bibarr[entry]) > tmpfile
-                    finale()
-                    system(EDITOR " " tmpfile)
-                    init()
+                    print "@" bibarr[entry] >> file
+                    notify(label " added to " file \
+                       "; press enter to continue")
                     clear_screen()
-                    getline ENTRY < tmpfile
-                    close(tmpfile)
-                    printf("%s", ENTRY) >> bibtmpfile
                 }
-                else {
-                    printf("@%s", bibarr[entry]) >> bibtmpfile
                 }
             }
-            system("cp " bibtmpfile " " BIBFILE \
-                   "; rm " tmpfile " " bibtmpfile)
-            clear_screen()
-            ref_gen(BIBFILE)
-            list = biblist "\f" "Go Back...\n\n\n\n\n";
-        }
-
-	    ## manually create file hierarchy: layer 2
-	    if (action == "manually create file hierarchy") {
-		system("mkdir -p " NTEPATH label "; " \
-		       "mkdir -p " APXPATH label "; " )
-
-		notify( "Create \n" \
-		       NTEPATH label "\n" \
-		       APXPATH label "\n" \
-		       "for notes, sublibraries and appendices respectively.\n" \
-		       "press enter to continue")
-		back = 1;
-	    }
-
-	    ## manually build database: layer 3
-	    ## automatically update database: layer 3
-	    if (action == "manually build database" || action == "automatically update database") {
-            meta_to_file(file, label, title, author, journal, doi)
-            yesno("Update " file " to " label)
-            database = ( action == "manually build database" ? 1 : 2 )
             continue
+            }
+
+            ## edit sublibraries: layer 4 if DEL
+            if (movement == DEL) {
+            content = ""
+            getline FILE < file
+            close(file)
+            regex = ".*" label ".*"
+            split(FILE, FILEarr, "@")
+            srand()
+            tmpfile = "/tmp/" sprintf("%x", 3480123*rand()) ".tmp"
+            delete FILEarr[1]
+            regex = ".*" label ".*"
+            for (entry in FILEarr) {
+                if (FILEarr[entry] ~ regex) {
+                continue
+                }
+                else {
+                content = content "\n" "@" FILEarr[entry]
+
+                }
+            }
+            content = substr(content, 2)
+            print content > tmpfile
+            system("mv " tmpfile " " file)
+            clear_screen()
+
+            # regenerate list for next delete
+            ref_gen(file)
+            list = biblist "\f" "Go Back...\n\n\n\n\n";
+            delim = "\f";
+            num = 6;
+            tmsg = "Choose BibTeX entry to delete"
+            bmsg = "Action: edit sublibraries"
+            }
         }
-
-	    ## create sublibraries: layer 2
-	    ## edit sublibraries: layer 4 if ADD
-	    if (action == "create sublibraries" || movement == ADD) {
-		getline FILE < file
-		close(file)
-		getline BIB < BIBFILE
-		close(BIBFILE)
-		split(BIB, bibarr, "@")
-		delete bibarr[1]
-		regex = ".*" label ".*"
-		match(FILE, regex)
-		if (RSTART) {
-		    notify("Duplicated BibTeX entry; press enter to continue")
-		    clear_screen()
-		}
-		else {
-		    for (entry in bibarr) {
-			if (bibarr[entry] ~ regex) {
-			    print "@" bibarr[entry] >> file
-			    notify(label " added to " file \
-				   "; press enter to continue")
-			    clear_screen()
-			}
-		    }
-		}
-		continue
-	    }
-
-	    ## edit sublibraries: layer 4 if DEL
-	    if (movement == DEL) {
-		content = ""
-		getline FILE < file
-		close(file)
-		regex = ".*" label ".*"
-		split(FILE, FILEarr, "@")
-		srand()
-		tmpfile = "/tmp/" sprintf("%x", 3480123*rand()) ".tmp"
-		delete FILEarr[1]
-		regex = ".*" label ".*"
-		for (entry in FILEarr) {
-		    if (FILEarr[entry] ~ regex) {
-			continue
-		    }
-		    else {
-			content = content "\n" "@" FILEarr[entry]
-
-		    }
-		}
-		content = substr(content, 2)
-		print content > tmpfile
-		system("mv " tmpfile " " file)
-		clear_screen()
-
-		# regenerate list for next delete
-		ref_gen(file)
-		list = biblist "\f" "Go Back...\n\n\n\n\n";
-		delim = "\f";
-		num = 6;
-		tmsg = "Choose BibTeX entry to delete"
-		bmsg = "Action: edit sublibraries"
-	    }
-	}
 
 	############
 	#  Finale  #
@@ -748,47 +745,46 @@ BEGIN {
             back = 1; database = 0
         }
 	    if (database == 2) {
-		mv_rm(file, label)
-		orig = file; gsub(PDFPATH, "", file)
-		name = file; file = orig; orig = "";
-		match(faillist, name)
-		if (length(faillist) == RSTART + RLENGTH - 1) { # last file
-		    prev = substr(faillist, 1, RSTART - 2)
-		    post = ""
-		}
-		else { # other file
-		    prev = substr(faillist, 1, RSTART - 1)
-		    post = substr(faillist, RSTART + RLENGTH + 1)
-		}
+            mv_rm(file, label)
+            orig = file; gsub(PDFPATH, "", file)
+            name = file; file = orig; orig = "";
+            match(faillist, name)
+            if (length(faillist) == RSTART + RLENGTH - 1) { # last file
+                prev = substr(faillist, 1, RSTART - 2)
+                post = ""
+            }
+            else { # other file
+                prev = substr(faillist, 1, RSTART - 1)
+                post = substr(faillist, RSTART + RLENGTH + 1)
+            }
 
-		faillist = prev post
+            faillist = prev post
+            save()
+            backtext = "All PDF files in database is updated!"
+            list = ( faillist == "" ? \
+                 backtext : \
+                 faillist "\f" "Main Menu" );
+            delim = "\f";
+            num = 1;
+            tmsg = "Choose file to encode metadata manually:";
+            bmsg = "Action: " action;
 
-		save()
-		backtext = "All PDF files in database is updated!"
-		list = ( faillist == "" ? \
-			backtext : \
-			faillist "\f" "Main Menu" );
-		delim = "\f";
-		num = 1;
-		tmsg = "Choose file to encode metadata manually:";
-		bmsg = "Action: " action;
-
-		if (faillist == "") {
-		    back = 1
-		}
-		else {
-		    back = 0
-		    continue
-		}
-	    }
+            if (faillist == "") {
+                back = 1
+            }
+            else {
+                back = 0
+                continue
+            }
+        }
 
 	    # remove sublibrary
 	    if (movement == RMV) {
-		system("rm " file)
-		notify(file " has been removed")
-		back = 1
-	    }
-	}
+            system("rm " file)
+            notify(file " has been removed")
+            back = 1
+        }
+    }
 
 	if (response == "No") {
 	    back = 1
@@ -883,7 +879,6 @@ function yesno(topmsg) {
     num = 1;
     tmsg = topmsg
     bmsg = "Yes-No Question"
-    menu_TUI_page(list, delim)
 }
 
 function meta_to_file(file, label, title, author, journal, doi) {
@@ -911,18 +906,18 @@ function meta_extract(file) {
     RS = "\n"
     i = 0
     while (getline < file > 0) {
-	match($0, \
-	    /\/Title[[:blank:]]?\([^\(]*\)|\/Author[[:blank:]]?\([^\(]*\)|\/Subject[[:blank:]]?\([^\(]*\)|\/WPS-ARTICLEDOI[[:blank:]]?\([^\(]*\)|\/CreationDate[[:blank:]]?\([^\(]*\)|\/ModDate[[:blank:]]?\([^\(]*\)/)
-	if(RSTART) {
-	    i++
-	    temp[i] = substr($0, RSTART, RLENGTH)
-	}
+        match($0, \
+                 /\/Title[[:blank:]]?\([^\(]*\)|\/Author[[:blank:]]?\([^\(]*\)|\/Subject[[:blank:]]?\([^\(]*\)|\/WPS-ARTICLEDOI[[:blank:]]?\([^\(]*\)|\/CreationDate[[:blank:]]?\([^\(]*\)|\/ModDate[[:blank:]]?\([^\(]*\)/)
+        if(RSTART) {
+            i++
+            temp[i] = substr($0, RSTART, RLENGTH)
+        }
     }
     close(file)
 
     # metadata at the bottom of the file
     for (j = 0; j <= 6; j++) {
-	info = info "\n" temp[i - j]
+        info = info "\n" temp[i - j]
     }
     info = substr(info, 2)
 
