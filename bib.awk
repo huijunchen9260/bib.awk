@@ -375,6 +375,7 @@ BEGIN {
             continue
         }
 
+
         # choosing a file
         if (response ~ /^.*\.[[:alpha:]][[:alpha:]][[:alpha:]]$/) {
 
@@ -578,35 +579,42 @@ BEGIN {
 
             ## edit existing BibTeX entry: layer 2
             if (action == "edit existing BibTeX entry") {
-                getline BIB < BIBFILE
-                close(BIBFILE)
-                split(BIB, bibarr, "@")
-                delete bibarr[1]
-                regex = label ".*"
-                srand()
-                tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
-                bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
-                for (entry in bibarr) {
-                    if (bibarr[entry] ~ regex) {
-                        printf("@%s", bibarr[entry]) > tmpfile
-                        finale()
-                        system(EDITOR " " tmpfile)
-                        init()
-                        clear_screen()
-                        getline ENTRY < tmpfile
-                        close(tmpfile)
-                        printf("%s", ENTRY) >> bibtmpfile
-                    }
-                    else {
-                        printf("@%s", bibarr[entry]) >> bibtmpfile
-                    }
-                }
-                system("cp " bibtmpfile " " BIBFILE \
-                       "; rm " tmpfile " " bibtmpfile)
-                clear_screen()
-                ref_gen(BIBFILE)
-                list = biblist "\f" "Go Back...\n\n\n\n\n";
+                yesno("Edit bibtex with bib.awk generated label?")
+                edit_bib = 1
+                continue
             }
+
+            ## edit existing BibTeX entry: layer 3
+            # if (action == "edit existing BibTeX entry") {
+            #     getline BIB < BIBFILE
+            #     close(BIBFILE)
+            #     split(BIB, bibarr, "@")
+            #     delete bibarr[1]
+            #     regex = label ".*"
+            #     srand()
+            #     tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
+            #     bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
+            #     for (entry in bibarr) {
+            #         if (bibarr[entry] ~ regex) {
+            #             printf("@%s", bibarr[entry]) > tmpfile
+            #             finale()
+            #             system(EDITOR " " tmpfile)
+            #             init()
+            #             clear_screen()
+            #             getline ENTRY < tmpfile
+            #             close(tmpfile)
+            #             printf("%s", ENTRY) >> bibtmpfile
+            #         }
+            #         else {
+            #             printf("@%s", bibarr[entry]) >> bibtmpfile
+            #         }
+            #     }
+            #     system("cp " bibtmpfile " " BIBFILE \
+            #            "; rm " tmpfile " " bibtmpfile)
+            #     clear_screen()
+            #     ref_gen(BIBFILE)
+            #     list = biblist "\f" "Go Back...\n\n\n\n\n";
+            # }
 
             ## manually create file hierarchy: layer 2
             if (action == "manually create file hierarchy") {
@@ -784,6 +792,70 @@ BEGIN {
             notify(file " has been removed")
             back = 1
         }
+
+        ## edit existing BibTeX entry: Yes with layer 3
+        if (edit_bib == 1) {
+            getline BIB < BIBFILE
+            close(BIBFILE)
+            split(BIB, bibarr, "@")
+            delete bibarr[1]
+            regex = label ".*"
+            srand()
+            tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
+            bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
+            for (entry in bibarr) {
+                if (bibarr[entry] ~ regex) {
+                    bibarr[entry] = sprintf("@%s", bibarr[entry])
+                    bibarr[entry] = label_alter(bibarr[entry])
+                    printf("%s", bibarr[entry]) > tmpfile
+                    finale()
+                    system(EDITOR " " tmpfile)
+                    init()
+                    clear_screen()
+                    getline ENTRY < tmpfile
+                    close(tmpfile)
+                    printf("%s", ENTRY) >> bibtmpfile
+                }
+                else {
+                    printf("@%s", bibarr[entry]) >> bibtmpfile
+                }
+            }
+            system("cp " bibtmpfile " " BIBFILE \
+                   "; rm " tmpfile " " bibtmpfile)
+            clear_screen()
+            back = 1
+        }
+    }
+
+    ## edit existing BibTeX entry: No with layer 3
+    if (response == "No" && edit_bib == 1) {
+        getline BIB < BIBFILE
+        close(BIBFILE)
+        split(BIB, bibarr, "@")
+        delete bibarr[1]
+        regex = label ".*"
+        srand()
+        tmpfile = "/tmp/" sprintf("%x", 8539217*rand()) ".tmp"
+        bibtmpfile = "/tmp/" sprintf("%x", 7129358*rand()) ".tmp"
+        for (entry in bibarr) {
+            if (bibarr[entry] ~ regex) {
+                printf("@%s", bibarr[entry]) > tmpfile
+                finale()
+                system(EDITOR " " tmpfile)
+                init()
+                clear_screen()
+                getline ENTRY < tmpfile
+                close(tmpfile)
+                printf("%s", ENTRY) >> bibtmpfile
+            }
+            else {
+                printf("@%s", bibarr[entry]) >> bibtmpfile
+            }
+        }
+        system("cp " bibtmpfile " " BIBFILE \
+               "; rm " tmpfile " " bibtmpfile)
+        clear_screen()
+        back = 1
     }
 
 	if (response == "No") {
