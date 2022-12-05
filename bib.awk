@@ -953,7 +953,7 @@ function mv_rm(file, label) {
     cmd = "mv \"/tmp/" label ".pdf\" \"" PDFPATH label ".pdf\"; echo $?"
     cmd | getline exitcode
     if (exitcode == 0 && file != (PDFPATH label ".pdf") ) {
-	system("rm \"" file "\";")
+        system("rm \"" file "\";")
     }
 }
 
@@ -1001,12 +1001,12 @@ function label_alter(bibtex) {
             }
             continue
         }
-        if (bibtexarr[line] ~ /.*year.*/) {
+        if (bibtexarr[line] ~ /.*year\ ?=\ ?.*/) {
             gsub(/.*year ?= ?{?|}?,?$/, "", bibtexarr[line])
             year = bibtexarr[line]
             continue
         }
-        if (bibtexarr[line] ~ /.*author.*/) {
+        if (bibtexarr[line] ~ /.*author\ ?=\ ?.*/) {
             gsub(/.*author ?= ?{?|}?,?$/, "", bibtexarr[line])
             split(bibtexarr[line], authorarr, " and ")
             for (name in authorarr) {
@@ -1022,7 +1022,7 @@ function label_alter(bibtex) {
             author = substr(author, 2)
             continue
         }
-        if (bibtexarr[line] ~ /.*journal.*/) {
+        if (bibtexarr[line] ~ /.*journal\ ?=\ ?.*/) {
             gsub(/.*journal ?= ?{?|}?,?$/, "", bibtexarr[line])
             if (bibtexarr[line] ~ /.* .*/) {
                 gsub(/[^A-Z]/, "", bibtexarr[line])
@@ -1030,7 +1030,7 @@ function label_alter(bibtex) {
             journal = bibtexarr[line]
             continue
         }
-        if (bibtexarr[line] ~ /.*booktitle.*/) {
+        if (bibtexarr[line] ~ /.*booktitle\ ?=\ ?.*/) {
             gsub(/.*booktitle ?= ?{?|}?,?$/, "", bibtexarr[line])
             booktitle = bibtexarr[line]
             continue
@@ -1078,40 +1078,39 @@ function ref_gen(BIBFILE) {
     split(BIB, bibarr, "@")
     delete bibarr[1]
     for (entry in bibarr) {
-	split(bibarr[entry], entryarr, "\n")
-	for (line in entryarr) {
-	    if (entryarr[line] ~ /^[[:alpha:]]*{.*$/) {
-		gsub(/^.*{|,$/, "", entryarr[line])
-		meta_label = entryarr[line]
-		label = sprintf("BibTeX: %s", entryarr[line])
-	    }
-	    if (entryarr[line] ~ /.*year.*/) {
-		gsub(/[^0-9]*/, "", entryarr[line])
-		meta_year = entryarr[line]
-		year = sprintf("\tYear: %s", entryarr[line])
-	    }
-	    if (entryarr[line] ~ /.*title.*/) {
-		gsub(/^[[:blank:]]*title[[:blank:]]?=[[:blank:]]?{|},?$/, "", entryarr[line])
-		meta_title = entryarr[line]
-		title = sprintf("\tTitle: %s", entryarr[line])
-	    }
-	    if (entryarr[line] ~ /.*author.*/) {
-		gsub(/^[[:blank:]]*author[[:blank:]]?=[[:blank:]]?{|},$/, "", entryarr[line])
-		meta_author = entryarr[line]
-		author = sprintf("\tAuthor(s): %s", entryarr[line])
-	    }
-	    if (entryarr[line] ~ /.*journal.*/) {
-		gsub(/^[[:blank:]]*journal[[:blank:]]?=[[:blank:]]?{|}.*/, "", entryarr[line])
-		meta_journal = entryarr[line]
-		journal = sprintf("\tJournal: %s", entryarr[line])
-	    }
-	    if (entryarr[line] ~ /^[[:blank:]]*[dD][oO][iI][[:blank:]]?=[[:blank:]]?{.*/) {
-		gsub(/^[[:blank:]]*[dD][oO][iI][[:blank:]]?=[[:blank:]]?{|}.*/, "", entryarr[line])
-		meta_doi = entryarr[line]
-		doi = sprintf("\tDOI: %s", entryarr[line])
-	    }
-	}
-
+        split(bibarr[entry], entryarr, "\n")
+        for (line in entryarr) {
+            if (entryarr[line] ~ /^[[:alpha:]]*{.*$/) {
+                gsub(/^.*{|,$/, "", entryarr[line])
+                meta_label = entryarr[line]
+                label = sprintf("BibTeX: %s", entryarr[line])
+            }
+            if (entryarr[line] ~ /.*year\ ?=\ ?.*/) {
+                gsub(/[^0-9]*/, "", entryarr[line])
+                meta_year = entryarr[line]
+                year = sprintf("\tYear: %s", entryarr[line])
+            }
+            if (entryarr[line] ~ /.*title\ ?=\ ?.*/) {
+                gsub(/^[[:blank:]]*title[[:blank:]]?=[[:blank:]]?{|},?$/, "", entryarr[line])
+                meta_title = entryarr[line]
+                title = sprintf("\tTitle: %s", entryarr[line])
+            }
+            if (entryarr[line] ~ /.*author\ ?=\ ?.*/) {
+                gsub(/^[[:blank:]]*author[[:blank:]]?=[[:blank:]]?{|},$/, "", entryarr[line])
+                meta_author = entryarr[line]
+                author = sprintf("\tAuthor(s): %s", entryarr[line])
+            }
+            if (entryarr[line] ~ /.*journal\ ?=\ ?.*/) {
+                gsub(/^[[:blank:]]*journal[[:blank:]]?=[[:blank:]]?{|}.*/, "", entryarr[line])
+                meta_journal = entryarr[line]
+                journal = sprintf("\tJournal: %s", entryarr[line])
+            }
+            if (entryarr[line] ~ /^[[:blank:]]*[dD][oO][iI][[:blank:]]?=[[:blank:]]?{.*/) {
+                gsub(/^[[:blank:]]*[dD][oO][iI][[:blank:]]?=[[:blank:]]?{|}.*/, "", entryarr[line])
+                meta_doi = entryarr[line]
+                doi = sprintf("\tDOI: %s", entryarr[line])
+            }
+        }
 	biblist = biblist "\f" \
 		  label "\n" \
 		  title "\n" \
@@ -1302,7 +1301,7 @@ function key_collect(list, pagerind) {
 function redraw(tmsg, bmsg) {
     printf "\033\1332J\033\133H" # clear screen and move cursor to 0, 0
     CUP(1, 1);
-    hud = "page: [n]ext, [p]rev, [r]eload, [t]op, [b]ottom, [num+G]o; entry: [h/k/j/l]-[←/↑/↓/→], [/]search, [q]uit"
+    hud = "page: [n]ext, [p]rev, [r]eload, [t]op, [b]ottom, [num+G]o; entry: [h/k/j/l]-[←/↑/↓/→], [/]search, [q]uit; file: [v]iew"
     gsub("[[]", "[\033\1331m", hud); gsub("[]]", "\033\133m]", hud)
     printf hud
 

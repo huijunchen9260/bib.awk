@@ -1,0 +1,7 @@
+option history_size = 100
+option listsize = 15
+option outfile = "/dev/stdout"
+option prompt = "gawk> "
+option save_history = 1
+option save_options = 1
+option trace = 0
