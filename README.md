@@ -20,6 +20,7 @@ Just like [shbib](https://github.com/huijunchen9260/shbib), but better.
 * [Installation guide](#installation-guide)
 * [Configuration](#configuration)
 * [Requirement](#requirement)
+* [Keybinding](#keybinding)
 * [Actions explained](#actions-explained)
 * [Alternatives](#alternatives)
 
@@ -70,6 +71,34 @@ Configuration explanation:
 - `curl` to search on Internet
 - `xdotool` to hide / show terminal when open graphical software, not necessary
 - other shell utilities: `rm`, `mv`, `file`, `printf`, `mkdir`, `stty`
+
+## Keybinding
+
+```
+NUMBERS:
+	[num] - move cursor to entry [num]
+	[num]+G - Go to page [num]
+
+NAVIGATION:
+	k/↑ - up                      j/↓ - down
+	l/→ - right                   h/← - left
+	Ctrl-f - Half Page Down       Ctrl-u - Half Page Up
+	n - PageDown                  p - PageUp
+	g/Home - first page           G/End - last page
+
+MODES:
+	/ - search
+	←/→ - move left/right
+	⌫ - backspace on one character
+
+PREVIEW:
+	v - toggle preview on pdf file (file selection)
+
+MISC:
+	r - refresh                   q - quit
+	? - show keybinds
+```
+
 
 ## Actions explained
 
