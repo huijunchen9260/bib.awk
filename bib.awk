@@ -1477,7 +1477,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
                    isSearch = 0;
                    break
                }
-            if ( answer == "\r" || answer == "l" ) {
+            if ( answer == "\r" || answer == "l" || answer ~ /\[C/) {
                 answer = Ncursor;
                 isSearch = 0;
                 break
