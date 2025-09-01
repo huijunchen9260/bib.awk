@@ -232,7 +232,7 @@ BEGIN {
             }
             system(BROWSER " " BIBUKEY \
                   "https://scholar.google.com/scholar?q=" \
-                  string " 2>&1 1>/dev/null &")
+                  string " 2>/dev/null &")
             clear_screen()
             wait_clip()
             if (bibtex ~ /^@[[:alpha:]]*{.*$/) {
@@ -436,12 +436,14 @@ BEGIN {
                 close(cmd)
                 if (mimetype ~ /.*text\/.*|.*x-empty.*|.*json.*/) {
                     finale()
-                    system(EDITOR " " file)
+                    system(EDITOR " " file " 2>/dev/null &")
                     init()
                     clear_screen()
                 }
                 else if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
-                    system(OPENER " " file)
+                    finale()
+                    system(OPENER " " file " 2>/dev/null &")
+                    init()
                     clear_screen()
                 }
                 else {
@@ -449,7 +451,9 @@ BEGIN {
                     cmd | getline wid
                     close(cmd)
                     system("xdotool windowunmap " wid " &")
-                    system(OPENER " " file)
+                    finale()
+                    system(OPENER " " file " 2>/dev/null &")
+                    init()
                     system("xdotool windowmap " wid " &")
                     clear_screen()
                 }
@@ -545,7 +549,9 @@ BEGIN {
             ## open sublibraries: layer 3
             if (action == "open research paper" || action == "open sublibraries") { # open pdf
                 if (ENVIRON["OSTYPE"] ~ /darwin.*/) {
-                    system(OPENER " " file)
+                    finale()
+                    system(READER " " PDFPATH label ".pdf 2>/dev/null")
+                    init()
                     clear_screen()
                 }
                 else {
@@ -553,7 +559,9 @@ BEGIN {
                     cmd | getline wid
                     close(cmd)
                     system("xdotool windowunmap " wid " &")
-                    system(READER " " PDFPATH label ".pdf")
+                    # finale()
+                    system(READER " " PDFPATH label ".pdf 2>/dev/null")
+                    # init()
                     system("xdotool windowmap " wid " &")
                     clear_screen()
                     if (action == "open sublibraries") load()
@@ -569,7 +577,7 @@ BEGIN {
                 }
                 else {
                     url = "https://doi.org/" doi
-                    system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
+                    system(BROWSER " " BIBUKEY url " 2>/dev/null &")
                     clear_screen()
                     # isBack = 1
                 }
@@ -578,7 +586,7 @@ BEGIN {
 
             ## copy BibTeX label: layer 2
             if (action == "copy BibTeX label") {
-                system("printf '%s' \"" label "\" | " CLIPINW)
+                system("printf '%s' \"" label "\" | " CLIPINW " 2>/dev/null")
                 notify(label " has copied to clipboard using " \
                        CLIPINW "; press enter to continue...")
                 # isBack = 1
@@ -590,7 +598,7 @@ BEGIN {
                 system("mkdir -p " NTEPATH label)
                 tex_template(NTEPATH label "/" label ".tex", title, author)
                 finale()
-                system(EDITOR " " NTEPATH label "/" label ".tex")
+                system(EDITOR " " NTEPATH label "/" label ".tex" " 2>/dev/null")
                 init()
                 clear_screen()
             }
@@ -742,7 +750,7 @@ BEGIN {
                     url = bibtexarr[line]
                 }
             }
-            system(BROWSER " " BIBUKEY url " 2>&1 1>/dev/null &")
+            system(BROWSER " " BIBUKEY url " 2>/dev/null &")
             system("mkdir -p " NTEPATH label "; " \
                    "mkdir -p " APXPATH label "; " )
             notify("Open in " label " in " BROWSER \
@@ -818,7 +826,7 @@ BEGIN {
                     bibarr[entry] = label_alter(bibarr[entry])
                     printf("%s", bibarr[entry]) > tmpfile
                     finale()
-                    system(EDITOR " " tmpfile)
+                    system(EDITOR " " tmpfile " 2>/dev/null")
                     init()
                     clear_screen()
                     getline ENTRY < tmpfile
@@ -851,7 +859,7 @@ BEGIN {
             if (bibarr[entry] ~ regex) {
                 printf("@%s", bibarr[entry]) > tmpfile
                 finale()
-                system(EDITOR " " tmpfile)
+                system(EDITOR " " tmpfile " 2>/dev/null")
                 init()
                 clear_screen()
                 getline ENTRY < tmpfile
@@ -1091,7 +1099,7 @@ function label_alter(bibtex) {
 function wait_clip() {
     count = 1; countmax = 360;
     # clear clipboard
-    system("printf '%s' "" | " CLIPINW)
+    system("printf '%s' "" | " CLIPINW " 2>/dev/null &")
     while (bibtex == "" && count <= countmax) {
 	print "Go copy bibtex within " countmax " seconds;\n" \
 	      "Already " count " seconds past"
@@ -1483,7 +1491,7 @@ function menu_TUI(list, delim, num, tmsg, bmsg) {
                 break
             }
             if ( answer == "q" ) exit
-            if ( answer == "v" && isChooseFile == 1 ) { system(OPENER " \"" PDFPATH disp[Ncursor] "\" &"); continue; }
+            if ( answer == "v" && isChooseFile == 1 ) { system(OPENER " \"" PDFPATH disp[Ncursor]  "\" 2>/dev/null &"); continue; }
             if ( (answer == "h" || answer ~ /\[D/) && layer == 1 ) { continue }
             if ( answer == "h" || answer ~ /\[D/) { answer = "Go Back..."; disp[answer] = "Go Back..."; break }
             if ( answer == "n" && +curpage < +page) { curpage++; break }
